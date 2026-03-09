@@ -13,10 +13,13 @@ import ForgotPassword from "./pages/auth/ForgotPassword"
 import ResetPassword from "./pages/auth/ResetPassword"
 import { useAuth } from "./context/AuthContext"
 
+// Detecta se está rodando como app nativo (Android/iOS via Capacitor)
+const isNative = window?.Capacitor?.isNativePlatform?.() ?? false
+
 function PrivateRoute({ children }) {
   const { user, loading, onboardingCompleted } = useAuth()
   if (loading) return <p style={{ color: "#94a3b8", padding: 40, fontFamily: "sans-serif" }}>Carregando...</p>
-  if (!user) return <Navigate to="/login" replace /> 
+  if (!user) return <Navigate to="/login" replace />
   if (!onboardingCompleted) return <Navigate to="/onboarding" replace />
   return children
 }
@@ -42,7 +45,15 @@ function App() {
   return (
     <BrowserRouter>
       <Routes>
-        <Route path="/" element={<LandingPage />} />
+        {/*
+          Rota raiz:
+          - Web/PC  → LandingPage
+          - Mobile  → redireciona direto para /login
+        */}
+        <Route
+          path="/"
+          element={isNative ? <Navigate to="/login" replace /> : <LandingPage />}
+        />
 
         <Route path="/login"
           element={<PublicRoute><Login /></PublicRoute>}
@@ -50,6 +61,7 @@ function App() {
         <Route path="/forgot-password"
           element={<PublicRoute><ForgotPassword /></PublicRoute>}
         />
+
         {/* Reset password não usa PublicRoute — o usuário chega via link de email com sessão temporária */}
         <Route path="/reset-password" element={<ResetPassword />} />
 
@@ -70,6 +82,20 @@ function App() {
         />
         <Route path="/team"
           element={<PrivateRoute><Team /></PrivateRoute>}
+        />
+
+        {/*
+          Páginas públicas:
+          - Web → acessíveis normalmente
+          - Mobile → redireciona para login (não fazem sentido no app)
+        */}
+        <Route
+          path="/privacy"
+          element={isNative ? <Navigate to="/login" replace /> : <PrivacyPolicy />}
+        />
+        <Route
+          path="/terms"
+          element={isNative ? <Navigate to="/login" replace /> : <TermsOfUse />}
         />
 
         <Route path="*" element={<Navigate to="/" replace />} />
