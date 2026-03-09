@@ -46,6 +46,9 @@ export default function AppLayout({ children }) {
     <div style={{
       display: "flex",
       minHeight: "100vh",
+      width: "100%",
+      maxWidth: "100%",
+      overflowX: "hidden",
       background: t.bgPage,
       fontFamily: "'DM Sans','Segoe UI',sans-serif",
       color: t.textBody,
@@ -252,6 +255,8 @@ export default function AppLayout({ children }) {
       <main style={{
         flex: 1,
         minWidth: 0,
+        maxWidth: "100%",
+        overflowX: "hidden",
         padding: isMobile ? "20px 16px" : "32px 40px",
         boxSizing: "border-box",
         fontSize: isMobile ? "14px" : "16px",
