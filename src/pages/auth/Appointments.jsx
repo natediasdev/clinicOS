@@ -80,7 +80,7 @@ function StatusBadge({ status }) {
 
 // ─── Patient Search Input ────────────────────────────────────────────────────
 
-function PatientSearchInput({ value, onSelect, clinicId }) {
+function PatientSearchInput({ value, onSelect, clinicId, s, t }) {
   const [query, setQuery] = useState(value?.name ?? "")
   const [results, setResults] = useState([])
   const [open, setOpen] = useState(false)
@@ -148,7 +148,7 @@ function PatientSearchInput({ value, onSelect, clinicId }) {
 
 // ─── Modal de novo agendamento ────────────────────────────────────────────────
 
-function AppointmentModal({ onClose, onSave, staffList, clinicId }) {
+function AppointmentModal({ onClose, onSave, staffList, clinicId, s, t }) {
   const [patient, setPatient] = useState(null)
   const [staffId, setStaffId] = useState("")
   const [datetime, setDatetime] = useState("")
@@ -190,7 +190,7 @@ function AppointmentModal({ onClose, onSave, staffList, clinicId }) {
         <div style={s.modalBody}>
           <div style={s.field}>
             <label style={s.label}>Paciente *</label>
-            <PatientSearchInput value={patient} onSelect={setPatient} clinicId={clinicId} />
+            <PatientSearchInput value={patient} onSelect={setPatient} clinicId={clinicId} s={s} t={t} />
           </div>
 
           <div style={s.field}>
@@ -250,7 +250,7 @@ function AppointmentModal({ onClose, onSave, staffList, clinicId }) {
 
 // ─── Calendário ───────────────────────────────────────────────────────────────
 
-function CalendarView({ appointments, onDayClick }) {
+function CalendarView({ appointments, onDayClick, s }) {
   const [current, setCurrent] = useState(new Date())
   const year = current.getFullYear()
   const month = current.getMonth()
@@ -421,7 +421,9 @@ export default function Appointments() {
           onClose={() => setShowModal(false)}
           onSave={handleSaved}
           staffList={staffList}
-          clinicId={clinicId}   // ← adicionar
+          clinicId={clinicId}
+          s={s}
+          t={t}
         />
       )}
 
@@ -574,6 +576,7 @@ export default function Appointments() {
           <CalendarView
             appointments={appointments}
             onDayClick={(date, appts) => setSelectedDay({ date, appts })}
+            s={s}
           />
         )}
       </div>
