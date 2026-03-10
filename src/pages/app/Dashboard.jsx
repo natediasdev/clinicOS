@@ -125,18 +125,25 @@ export default function Dashboard() {
   const { clinicId, clinic } = useAuth()
   const { t } = useTheme()
   const metrics = useDashboardMetrics(clinicId)
+  const [isMobile, setIsMobile] = useState(window.innerWidth <= 768)
+
+  useEffect(() => {
+    function handleResize() { setIsMobile(window.innerWidth <= 768) }
+    window.addEventListener("resize", handleResize)
+    return () => window.removeEventListener("resize", handleResize)
+  }, [])
 
   return (
     <AppLayout>
       <div style={{ color: t.textBody, fontFamily: "'DM Sans','Segoe UI',sans-serif" }}>
-        <header style={{ marginBottom: 36 }}>
-          <h1 style={{ fontSize: 28, fontWeight: 700, margin: 0, color: t.textPrimary, letterSpacing: "-0.5px" }}>{clinic?.name ?? "Dashboard"}</h1>
+        <header style={{ marginBottom: isMobile ? 20 : 36 }}>
+          <h1 style={{ fontSize: isMobile ? 22 : 28, fontWeight: 700, margin: 0, color: t.textPrimary, letterSpacing: "-0.5px" }}>{clinic?.name ?? "Dashboard"}</h1>
           <p style={{ margin: "4px 0 0", fontSize: 13, color: t.textFaint }}>Visão geral da clínica</p>
         </header>
 
         {metrics.error && <div style={{ background: t.errorBg, color: t.errorText, border: `1px solid ${t.errorBorder}`, borderRadius: 8, padding: "10px 16px", fontSize: 13, marginBottom: 20 }}>⚠️ {metrics.error}</div>}
 
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 16, marginBottom: 24 }}>
+        <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr 1fr" : "repeat(auto-fit, minmax(180px, 1fr))", gap: isMobile ? 10 : 16, marginBottom: isMobile ? 12 : 24 }}>
           {metrics.loading ? [1,2,3,4,5].map(i=><MetricSkeleton key={i}/>) : <>
             <MetricCard label="Pacientes ativos"    value={metrics.totalPatients}          sub="total cadastrado"               accent="#3b82f6" />
             <MetricCard label="Agendamentos hoje"   value={metrics.todayAppointments}       sub="excluindo cancelados"           accent="#8b5cf6" />
@@ -146,7 +153,7 @@ export default function Dashboard() {
           </>}
         </div>
 
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 340px", gap: 16 }}>
+        <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 340px", gap: isMobile ? 12 : 16 }}>
           {metrics.loading
             ? <div style={{ background: t.bgCard, borderRadius: 12, padding: 24 }}>{[1,2,3].map(i=><div key={i} className="skeleton-shimmer" style={{ height: 48, marginBottom: 8 }}/>)}</div>
             : <NextAppointmentsList items={metrics.nextAppointments} />}

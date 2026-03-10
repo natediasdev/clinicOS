@@ -80,7 +80,7 @@ function StatusBadge({ status }) {
 
 // ─── Patient Search Input ────────────────────────────────────────────────────
 
-function PatientSearchInput({ value, onSelect, clinicId, s, t }) {
+function PatientSearchInput({ value, onSelect, clinicId }) {
   const [query, setQuery] = useState(value?.name ?? "")
   const [results, setResults] = useState([])
   const [open, setOpen] = useState(false)
@@ -148,7 +148,7 @@ function PatientSearchInput({ value, onSelect, clinicId, s, t }) {
 
 // ─── Modal de novo agendamento ────────────────────────────────────────────────
 
-function AppointmentModal({ onClose, onSave, staffList, clinicId, s, t }) {
+function AppointmentModal({ onClose, onSave, staffList, clinicId }) {
   const [patient, setPatient] = useState(null)
   const [staffId, setStaffId] = useState("")
   const [datetime, setDatetime] = useState("")
@@ -190,7 +190,7 @@ function AppointmentModal({ onClose, onSave, staffList, clinicId, s, t }) {
         <div style={s.modalBody}>
           <div style={s.field}>
             <label style={s.label}>Paciente *</label>
-            <PatientSearchInput value={patient} onSelect={setPatient} clinicId={clinicId} s={s} t={t} />
+            <PatientSearchInput value={patient} onSelect={setPatient} clinicId={clinicId} />
           </div>
 
           <div style={s.field}>
@@ -250,7 +250,7 @@ function AppointmentModal({ onClose, onSave, staffList, clinicId, s, t }) {
 
 // ─── Calendário ───────────────────────────────────────────────────────────────
 
-function CalendarView({ appointments, onDayClick, s }) {
+function CalendarView({ appointments, onDayClick }) {
   const [current, setCurrent] = useState(new Date())
   const year = current.getFullYear()
   const month = current.getMonth()
@@ -329,6 +329,13 @@ export default function Appointments() {
   const { clinicId } = useAuth()
   const { t } = useTheme()
   const s = makeStyles(t)
+  const [isMobile, setIsMobile] = useState(window.innerWidth <= 768)
+
+  useEffect(() => {
+    function handleResize() { setIsMobile(window.innerWidth <= 768) }
+    window.addEventListener("resize", handleResize)
+    return () => window.removeEventListener("resize", handleResize)
+  }, [])
 
 
   function showToast(message, type = "success") {
@@ -452,24 +459,17 @@ export default function Appointments() {
 
       <div style={s.page}>
         {/* Header */}
-        <header style={s.header}>
+        <header style={{ ...s.header, marginBottom: isMobile ? 16 : 24 }}>
           <div>
-            <h1 style={s.heading}>Agendamentos</h1>
+            <h1 style={{ ...s.heading, fontSize: isMobile ? 22 : 28 }}>Agendamentos</h1>
             <p style={s.subheading}>Gerencie a agenda da clínica</p>
           </div>
-          <div style={s.headerActions}>
-            {/* Toggle view */}
+          <div style={{ ...s.headerActions, width: isMobile ? "100%" : "auto" }}>
             <div style={s.viewToggle}>
-              <button
-                style={view === "list" ? { ...s.toggleBtn, ...s.toggleBtnActive } : s.toggleBtn}
-                onClick={() => setView("list")}
-              >☰ Lista</button>
-              <button
-                style={view === "calendar" ? { ...s.toggleBtn, ...s.toggleBtnActive } : s.toggleBtn}
-                onClick={() => setView("calendar")}
-              >⊟ Calendário</button>
+              <button style={view === "list" ? { ...s.toggleBtn, ...s.toggleBtnActive } : s.toggleBtn} onClick={() => setView("list")}>☰ Lista</button>
+              <button style={view === "calendar" ? { ...s.toggleBtn, ...s.toggleBtnActive } : s.toggleBtn} onClick={() => setView("calendar")}>⊟ Calendário</button>
             </div>
-            <button style={s.btnPrimary} onClick={() => setShowModal(true)}>
+            <button style={{ ...s.btnPrimary, flex: isMobile ? 1 : "unset" }} onClick={() => setShowModal(true)}>
               + Novo agendamento
             </button>
           </div>
@@ -477,22 +477,16 @@ export default function Appointments() {
 
         {view === "list" ? (
           <>
-            {/* Filtros de status */}
-            <div style={s.filters}>
-              <button
-                style={filterStatus === "all" ? { ...s.filterBtn, ...s.filterBtnActive } : s.filterBtn}
-                onClick={() => setFilterStatus("all")}
-              >
+            {/* Filtros */}
+            <div style={{ ...s.filters, overflowX: "auto", flexWrap: isMobile ? "nowrap" : "wrap", paddingBottom: isMobile ? 4 : 0 }}>
+              <button style={filterStatus === "all" ? { ...s.filterBtn, ...s.filterBtnActive, flexShrink: 0 } : { ...s.filterBtn, flexShrink: 0 }} onClick={() => setFilterStatus("all")}>
                 Todos <span style={s.filterCount}>{appointments.length}</span>
               </button>
               {Object.entries(STATUS_CONFIG).map(([key, cfg]) => {
                 const count = appointments.filter((a) => a.status === key).length
                 return (
-                  <button
-                    key={key}
-                    style={filterStatus === key
-                      ? { ...s.filterBtn, ...s.filterBtnActive, borderColor: cfg.color, color: cfg.color }
-                      : s.filterBtn}
+                  <button key={key}
+                    style={filterStatus === key ? { ...s.filterBtn, ...s.filterBtnActive, borderColor: cfg.color, color: cfg.color, flexShrink: 0 } : { ...s.filterBtn, flexShrink: 0 }}
                     onClick={() => setFilterStatus(key)}
                   >
                     {cfg.label} <span style={s.filterCount}>{count}</span>
@@ -501,24 +495,41 @@ export default function Appointments() {
               })}
             </div>
 
-            {/* Tabela */}
+            {/* Lista */}
             <div style={s.listCard}>
               {fetching ? (
                 <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                  {[1,2,3,4].map((i) => (
-                    <div key={i} className="skeleton-shimmer" style={{ height: 52 }} />
-                  ))}
+                  {[1,2,3,4].map((i) => <div key={i} className="skeleton-shimmer" style={{ height: 52 }} />)}
                 </div>
               ) : filtered.length === 0 ? (
                 <div style={s.emptyState}>
                   <span style={s.emptyIcon}>📅</span>
                   <p style={s.emptyText}>Nenhum agendamento encontrado</p>
-                  <p style={s.emptySub}>
-                    {filterStatus !== "all" ? "Tente outro filtro ou " : ""}
-                    clique em "+ Novo agendamento" para começar.
-                  </p>
+                  <p style={s.emptySub}>{filterStatus !== "all" ? "Tente outro filtro ou " : ""}clique em "+ Novo agendamento" para começar.</p>
+                </div>
+              ) : isMobile ? (
+                // Cards mobile
+                <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                  {filtered.map((a) => (
+                    <div key={a.id} style={{ background: t.bgInset, borderRadius: 10, padding: "14px 16px", display: "flex", flexDirection: "column", gap: 8 }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                        <span style={{ fontWeight: 700, color: t.textPrimary, fontSize: 15 }}>{patientMap[a.client_id]?.name ?? "—"}</span>
+                        <StatusBadge status={a.status} />
+                      </div>
+                      <span style={{ fontSize: 13, color: t.textGhost }}>{formatDateTime(a.datetime)}</span>
+                      {staffMap[a.staff_id] && <span style={{ fontSize: 13, color: t.textGhost }}>👤 {staffMap[a.staff_id].name}</span>}
+                      <div style={{ display: "flex", gap: 8, marginTop: 4 }}>
+                        <select value={a.status} disabled={changingStatus === a.id} onChange={(e) => handleStatusChange(a.id, e.target.value)}
+                          style={{ ...s.statusSelect, flex: 1, color: STATUS_CONFIG[a.status]?.color ?? "#64748b", opacity: changingStatus === a.id ? 0.5 : 1 }}>
+                          {Object.entries(STATUS_CONFIG).map(([key, cfg]) => <option key={key} value={key}>{cfg.label}</option>)}
+                        </select>
+                        <button style={s.btnDelete} onClick={() => handleDelete(a.id)}>Remover</button>
+                      </div>
+                    </div>
+                  ))}
                 </div>
               ) : (
+                // Tabela desktop
                 <table style={s.table}>
                   <thead>
                     <tr>
@@ -534,36 +545,18 @@ export default function Appointments() {
                       <tr key={a.id} style={s.tr}>
                         <td style={s.td}>
                           <span style={s.patientName}>{patientMap[a.client_id]?.name ?? "—"}</span>
-                          {patientMap[a.client_id]?.phone && (
-                            <span style={s.patientPhone}>{patientMap[a.client_id].phone}</span>
-                          )}
+                          {patientMap[a.client_id]?.phone && <span style={s.patientPhone}>{patientMap[a.client_id].phone}</span>}
                         </td>
+                        <td style={s.td}><span style={s.tdMain}>{formatDateTime(a.datetime)}</span></td>
+                        <td style={s.td}><span style={s.tdMuted}>{staffMap[a.staff_id]?.name ?? "—"}</span></td>
                         <td style={s.td}>
-                          <span style={s.tdMain}>{formatDateTime(a.datetime)}</span>
-                        </td>
-                        <td style={s.td}>
-                          <span style={s.tdMuted}>{staffMap[a.staff_id]?.name ?? "—"}</span>
-                        </td>
-                        <td style={s.td}>
-                          <select
-                            value={a.status}
-                            disabled={changingStatus === a.id}
-                            onChange={(e) => handleStatusChange(a.id, e.target.value)}
-                            style={{
-                              ...s.statusSelect,
-                              color: STATUS_CONFIG[a.status]?.color ?? "#64748b",
-                              opacity: changingStatus === a.id ? 0.5 : 1,
-                            }}
-                          >
-                            {Object.entries(STATUS_CONFIG).map(([key, cfg]) => (
-                              <option key={key} value={key}>{cfg.label}</option>
-                            ))}
+                          <select value={a.status} disabled={changingStatus === a.id} onChange={(e) => handleStatusChange(a.id, e.target.value)}
+                            style={{ ...s.statusSelect, color: STATUS_CONFIG[a.status]?.color ?? "#64748b", opacity: changingStatus === a.id ? 0.5 : 1 }}>
+                            {Object.entries(STATUS_CONFIG).map(([key, cfg]) => <option key={key} value={key}>{cfg.label}</option>)}
                           </select>
                         </td>
                         <td style={{ ...s.td, textAlign: "right" }}>
-                          <button style={s.btnDelete} onClick={() => handleDelete(a.id)}>
-                            Remover
-                          </button>
+                          <button style={s.btnDelete} onClick={() => handleDelete(a.id)}>Remover</button>
                         </td>
                       </tr>
                     ))}
@@ -573,11 +566,7 @@ export default function Appointments() {
             </div>
           </>
         ) : (
-          <CalendarView
-            appointments={appointments}
-            onDayClick={(date, appts) => setSelectedDay({ date, appts })}
-            s={s}
-          />
+          <CalendarView appointments={appointments} onDayClick={(date, appts) => setSelectedDay({ date, appts })} s={s} />
         )}
       </div>
     </AppLayout>

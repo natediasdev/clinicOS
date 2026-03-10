@@ -31,6 +31,13 @@ export default function Patients() {
   const [loading, setLoading] = useState(false); const [fetching, setFetching] = useState(true)
   const [deleteConfirm, setDeleteConfirm] = useState(null)
   const [error, setError] = useState(null); const [toast, setToast] = useState(null)
+  const [isMobile, setIsMobile] = useState(window.innerWidth <= 768)
+
+  useEffect(() => {
+    function handleResize() { setIsMobile(window.innerWidth <= 768) }
+    window.addEventListener("resize", handleResize)
+    return () => window.removeEventListener("resize", handleResize)
+  }, [])
 
   function showToast(msg, type="success") { setToast({msg,type}); setTimeout(()=>setToast(null),3000) }
 
@@ -67,14 +74,14 @@ export default function Patients() {
     <AppLayout>
       <Toast toast={toast} />
       <div style={{ color: t.textBody, fontFamily: "'DM Sans','Segoe UI',sans-serif" }}>
-        <header style={{ marginBottom: 32 }}>
-          <h1 style={{ fontSize: 28, fontWeight: 800, margin: 0, color: t.textPrimary, letterSpacing: "-0.5px" }}>Pacientes</h1>
+        <header style={{ marginBottom: isMobile ? 16 : 32 }}>
+          <h1 style={{ fontSize: isMobile ? 22 : 28, fontWeight: 800, margin: 0, color: t.textPrimary, letterSpacing: "-0.5px" }}>Pacientes</h1>
           <p style={{ margin: "4px 0 0", fontSize: 13, color: t.textFaint }}>Gerencie os pacientes da clínica</p>
         </header>
 
-        <div style={{ background: t.bgCard, borderRadius: 12, padding: "24px", marginBottom: 20 }}>
+        <div style={{ background: t.bgCard, borderRadius: 12, padding: isMobile ? "16px" : "24px", marginBottom: 20 }}>
           <h2 style={{ fontSize: 13, fontWeight: 700, color: t.textMuted, textTransform: "uppercase", letterSpacing: "0.08em", margin: "0 0 16px" }}>Novo paciente</h2>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr auto", gap: 14, alignItems: "end" }}>
+          <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr 1fr auto", gap: 14, alignItems: "end" }}>
             {[["Nome *","text","Nome completo",name,setName],["Telefone","text","(00) 00000-0000",phone,setPhone],["E-mail","email","paciente@email.com",email,setEmail]].map(([lbl,type,ph,val,setter])=>(
               <div key={lbl} style={{ display:"flex",flexDirection:"column",gap:6 }}>
                 <label style={{ fontSize:12,fontWeight:600,color:t.textFaint }}>{lbl}</label>
@@ -82,17 +89,14 @@ export default function Patients() {
                   onFocus={e=>e.target.style.borderColor=t.accent} onBlur={e=>e.target.style.borderColor=t.border} />
               </div>
             ))}
-            <div style={{ display:"flex",flexDirection:"column",gap:6 }}>
-              <label style={{ fontSize:12,opacity:0 }}>.</label>
-              <button onClick={addPatient} disabled={loading||!name.trim()} style={{ background:t.accent,border:"none",borderRadius:8,padding:"10px 20px",fontSize:14,fontWeight:700,color:"#fff",cursor:"pointer",whiteSpace:"nowrap",opacity:loading||!name.trim()?0.5:1 }}>
-                {loading ? "Salvando..." : "+ Adicionar"}
-              </button>
-            </div>
+            <button onClick={addPatient} disabled={loading||!name.trim()} style={{ background:t.accent,border:"none",borderRadius:8,padding:"10px 20px",fontSize:14,fontWeight:700,color:"#fff",cursor:"pointer",whiteSpace:"nowrap",opacity:loading||!name.trim()?0.5:1, marginTop: isMobile ? 4 : 0 }}>
+              {loading ? "Salvando..." : "+ Adicionar"}
+            </button>
           </div>
           {error && <div style={{ background:t.errorBg,border:`1px solid ${t.errorBorder}`,color:t.errorText,borderRadius:8,padding:"10px 14px",fontSize:13,marginTop:14 }}>{error}</div>}
         </div>
 
-        <div style={{ background: t.bgCard, borderRadius: 12, padding: "24px" }}>
+        <div style={{ background: t.bgCard, borderRadius: 12, padding: isMobile ? "16px" : "24px" }}>
           <h2 style={{ fontSize:13,fontWeight:700,color:t.textMuted,textTransform:"uppercase",letterSpacing:"0.08em",margin:"0 0 16px",display:"flex",alignItems:"center",gap:10 }}>
             Pacientes cadastrados
             {!fetching && <span style={{ background:t.bgInset,color:t.accent,fontSize:12,fontWeight:700,padding:"2px 10px",borderRadius:99 }}>{patients.length}</span>}
@@ -108,7 +112,31 @@ export default function Patients() {
               <p style={{ fontSize:15,color:t.textGhost,margin:0,fontWeight:600 }}>Nenhum paciente cadastrado ainda.</p>
               <p style={{ fontSize:13,color:t.textDisabled,margin:0 }}>Use o formulário acima para adicionar o primeiro.</p>
             </div>
+          ) : isMobile ? (
+            // Cards para mobile
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              {patients.map(p => (
+                <div key={p.id} style={{ background: t.bgInset, borderRadius: 10, padding: "14px 16px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 3, flex: 1, minWidth: 0 }}>
+                    <span style={{ fontWeight: 700, color: t.textPrimary, fontSize: 15 }}>{p.name}</span>
+                    {p.phone && <span style={{ fontSize: 13, color: t.textGhost }}>{p.phone}</span>}
+                    {p.email && <span style={{ fontSize: 12, color: t.textGhost, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.email}</span>}
+                  </div>
+                  <div style={{ marginLeft: 12, flexShrink: 0 }}>
+                    {deleteConfirm === p.id ? (
+                      <span style={{ display:"flex",alignItems:"center",gap:6 }}>
+                        <button onClick={()=>deletePatient(p.id)} style={{ background:t.errorBg,border:"none",color:t.errorText,borderRadius:6,padding:"6px 10px",fontSize:12,fontWeight:700,cursor:"pointer" }}>Sim</button>
+                        <button onClick={()=>setDeleteConfirm(null)} style={{ background:t.bgCard,border:`1px solid ${t.border}`,color:t.textMuted,borderRadius:6,padding:"6px 10px",fontSize:12,cursor:"pointer" }}>Não</button>
+                      </span>
+                    ) : permissions.canDeletePatients ? (
+                      <button onClick={()=>setDeleteConfirm(p.id)} style={{ background:"transparent",border:`1px solid ${t.borderStrong}`,color:t.textFaint,borderRadius:6,padding:"6px 12px",fontSize:12,cursor:"pointer" }}>Excluir</button>
+                    ) : null}
+                  </div>
+                </div>
+              ))}
+            </div>
           ) : (
+            // Tabela para desktop
             <table style={{ width:"100%",borderCollapse:"collapse" }}>
               <thead>
                 <tr>
