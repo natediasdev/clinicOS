@@ -23,6 +23,7 @@ const responsiveCSS = `
     .lp-section-sub { font-size: 15px !important; margin-bottom: 36px !important; }
 
     .lp-plans-grid { grid-template-columns: 1fr !important; max-width: 400px !important; margin: 0 auto !important; }
+    .lp-plan-highlighted { transform: none !important; }
 
     .lp-cta { padding: 60px 24px !important; }
     .lp-cta-title { font-size: 28px !important; }
@@ -78,24 +79,41 @@ const FEATURES = [
 ]
 
 const PLANS = [
-
+  {
+    name: "Free",
+    monthlyPrice: 0,
+    yearlyPrice: 0,
+    period: "/mês",
+    desc: "Para quem quer experimentar.",
+    features: ["Até 50 pacientes", "1 usuário", "Agendamentos ilimitados", "Dashboard básico"],
+    cta: "Começar grátis",
+    ctaUrl: "/register",
+    highlight: false,
+    color: "#64748b",
+  },
   {
     name: "Pro",
-    price: "R$ 97",
+    monthlyPrice: 79,
+    yearlyPrice: 63,
     period: "/mês",
-    desc: "Para clínicas em crescimento.",
-    features: ["Pacientes ilimitados", "Até 5 usuários", "Gestão de equipe", "Dashboard completo", "Suporte prioritário"],
-    cta: "Assinar Pro", ctaUrl: "https://wa.me/5521999999999?text=Olá!%20Quero%20assinar%20o%20plano%20Pro%20do%20ClinicOS",
+    desc: "Para profissionais autônomos.",
+    features: ["Pacientes ilimitados", "Até 3 usuários", "Prontuário completo", "Anexos e documentos", "Dashboard completo"],
+    cta: "Assinar Pro",
+    ctaUrl: "/register",
     highlight: true,
+    color: "#3b82f6",
   },
   {
     name: "Clínica",
-    price: "R$ 197",
+    monthlyPrice: 199,
+    yearlyPrice: 159,
     period: "/mês",
-    desc: "Para clínicas com múltiplos profissionais.",
-    features: ["Tudo do Pro", "Usuários ilimitados", "Relatórios avançados", "API de integração", "Onboarding dedicado"],
-    cta: "Falar com vendas", ctaUrl: "https://wa.me/5521999999999?text=Olá!%20Quero%20conhecer%20o%20plano%20Clínica%20do%20ClinicOS",
+    desc: "Para clínicas com equipe.",
+    features: ["Tudo do Pro", "Usuários ilimitados", "Suporte prioritário", "Onboarding dedicado", "API de integração"],
+    cta: "Assinar Clínica",
+    ctaUrl: "/register",
     highlight: false,
+    color: "#8b5cf6",
   },
 ]
 
@@ -230,19 +248,53 @@ function Features() {
 }
 
 function Pricing() {
+  const [yearly, setYearly] = useState(false)
+
   return (
     <section id="pricing" style={{ ...s.section, background: "#080f1a" }} className="lp-section">
       <div style={s.sectionLabel}>Planos</div>
       <h2 style={s.sectionTitle} className="lp-section-title">Simples e transparente.</h2>
-      <p style={s.sectionSub} className="lp-section-sub">Planos simples, sem surpresas. Fale com a gente para começar.</p>
-      <div style={s.plansGrid} className="lp-plans-grid">
+      <p style={s.sectionSub} className="lp-section-sub">Comece grátis e evolua conforme sua clínica cresce. Cancele quando quiser.</p>
+
+      {/* Toggle mensal/anual */}
+      <div style={{ display:"flex", alignItems:"center", gap:12, marginBottom:48 }}>
+        <span style={{ fontSize:14, fontWeight:600, color: yearly ? "#475569" : "#94a3b8" }}>Mensal</span>
+        <button onClick={() => setYearly(y => !y)} style={{ width:48, height:26, background:"#1e293b", border:"1px solid #334155", borderRadius:99, cursor:"pointer", position:"relative" }}>
+          <div style={{ position:"absolute", top:2, width:20, height:20, background:"#3b82f6", borderRadius:"50%", transition:"transform 0.2s", transform: yearly ? "translateX(24px)" : "translateX(2px)" }} />
+        </button>
+        <span style={{ fontSize:14, fontWeight:600, color: yearly ? "#94a3b8" : "#475569" }}>
+          Anual{" "}
+          <span style={{ background:"#052e16", color:"#22c55e", border:"1px solid #166534", borderRadius:99, padding:"2px 8px", fontSize:11, fontWeight:700 }}>-20%</span>
+        </span>
+      </div>
+
+      <div style={{ ...s.plansGrid, gridTemplateColumns:"repeat(auto-fit, minmax(260px, 1fr))", maxWidth:1000 }} className="lp-plans-grid">
         {PLANS.map((p) => (
-          <div key={p.name} style={p.highlight ? { ...s.planCard, ...s.planCardHighlight } : s.planCard}>
-            {p.highlight && <div style={s.planBadge}>Mais popular</div>}
-            <h3 style={s.planName}>{p.name}</h3>
+          <div key={p.name} className={p.highlight ? "lp-plan-highlighted" : ""} style={{
+            ...s.planCard,
+            ...(p.highlight ? s.planCardHighlight : {}),
+            borderColor: p.highlight ? p.color : "#1e293b",
+            borderWidth: p.highlight ? 2 : 1,
+            transform: p.highlight ? "scale(1.04)" : "scale(1)",
+            boxShadow: p.highlight ? `0 0 40px ${p.color}22` : "none",
+          }}>
+            {p.highlight && <div style={{ ...s.planBadge, background: p.color }}>Mais popular</div>}
+            <div style={{ borderTop:`3px solid ${p.color}`, margin:"-32px -28px 24px", borderRadius:"14px 14px 0 0", padding:"16px 28px 0" }} />
+            <h3 style={{ ...s.planName, color: p.color }}>{p.name}</h3>
             <div style={s.planPrice}>
-              {p.price}<span style={s.planPeriod}>{p.period}</span>
+              {p.monthlyPrice === 0 ? (
+                <span style={{ fontSize:40, fontWeight:800, color:"#f8fafc" }}>Grátis</span>
+              ) : (
+                <>
+                  <span style={{ fontSize:16, fontWeight:700, color:"#94a3b8", verticalAlign:"top", marginTop:8, display:"inline-block" }}>R$</span>
+                  <span style={{ fontSize:48, fontWeight:800, color:"#f8fafc", letterSpacing:"-2px" }}>{yearly ? p.yearlyPrice : p.monthlyPrice}</span>
+                  <span style={s.planPeriod}>/mês</span>
+                </>
+              )}
             </div>
+            {yearly && p.monthlyPrice > 0 && (
+              <p style={{ fontSize:12, color:"#475569", margin:"-8px 0 8px" }}>cobrado R${p.yearlyPrice * 12}/ano</p>
+            )}
             <p style={s.planDesc}>{p.desc}</p>
             <ul style={s.planFeatures}>
               {p.features.map((f) => (
@@ -251,12 +303,15 @@ function Pricing() {
                 </li>
               ))}
             </ul>
-            <a href={p.ctaUrl || INSTAGRAM_URL} target="_blank" rel="noopener noreferrer">
-              <button style={p.highlight ? s.btnPlanHighlight : s.btnPlan}>{p.cta}</button>
-            </a>
+            <Link to={p.ctaUrl} style={{ textDecoration:"none" }}>
+              <button style={p.highlight ? { ...s.btnPlanHighlight, background: p.color } : s.btnPlan}>{p.cta}</button>
+            </Link>
           </div>
         ))}
       </div>
+      <p style={{ textAlign:"center", fontSize:13, color:"#334155", marginTop:32 }}>
+        Sem fidelidade · Cancele quando quiser · Sem cartão para o plano Free
+      </p>
     </section>
   )
 }
