@@ -135,13 +135,13 @@ function removeLoader() {
 }
 
 ReactDOM.createRoot(document.getElementById('root')).render(
-  <React.StrictMode>
+  
     <ThemeProvider>
       <AuthProvider>
         <App />
       </AuthProvider>
     </ThemeProvider>
-  </React.StrictMode>
+  
 )
 
 // Remove o loader assim que o primeiro frame renderizar
