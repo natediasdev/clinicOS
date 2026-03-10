@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom"
 import LandingPage from "./pages/public/LandingPage"
 import Dashboard from "./pages/app/Dashboard"
 import Patients from "./pages/app/Patients"
+import PatientRecord from "./pages/app/PatientRecord"
 import Appointments from "./pages/auth/Appointments"
 import ClinicProfile from "./pages/app/ClinicProfile"
 import Team from "./pages/app/Team"
@@ -73,6 +74,9 @@ function App() {
         />
         <Route path="/patients"
           element={<PrivateRoute><Patients /></PrivateRoute>}
+        />
+        <Route path="/patients/:id"
+          element={<PrivateRoute><PatientRecord /></PrivateRoute>}
         />
         <Route path="/appointments"
           element={<PrivateRoute><Appointments /></PrivateRoute>}

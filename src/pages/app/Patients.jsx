@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react"
+import { useNavigate } from "react-router-dom"
 import { supabase } from "../../supabaseClient"
 import AppLayout from "../AppLayout"
 import { useTheme } from "../../context/ThemeContext"
@@ -26,6 +27,7 @@ export default function Patients() {
   const { clinicId } = useAuth()
   const permissions = usePermissions()
   const { checkPatientLimit } = usePlanLimits()
+  const navigate = useNavigate()
   const [patients, setPatients] = useState([])
   const [name, setName] = useState(""); const [phone, setPhone] = useState(""); const [email, setEmail] = useState("")
   const [loading, setLoading] = useState(false); const [fetching, setFetching] = useState(true)
@@ -118,7 +120,7 @@ export default function Patients() {
               {patients.map(p => (
                 <div key={p.id} style={{ background: t.bgInset, borderRadius: 10, padding: "14px 16px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                   <div style={{ display: "flex", flexDirection: "column", gap: 3, flex: 1, minWidth: 0 }}>
-                    <span style={{ fontWeight: 700, color: t.textPrimary, fontSize: 15 }}>{p.name}</span>
+                    <span onClick={()=>navigate(`/patients/${p.id}`)} style={{ fontWeight: 700, color: t.accent, fontSize: 15, cursor:"pointer" }}>{p.name}</span>
                     {p.phone && <span style={{ fontSize: 13, color: t.textGhost }}>{p.phone}</span>}
                     {p.email && <span style={{ fontSize: 12, color: t.textGhost, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.email}</span>}
                   </div>
@@ -148,7 +150,9 @@ export default function Patients() {
               <tbody>
                 {patients.map(p=>(
                   <tr key={p.id} style={{ borderBottom:`1px solid ${t.bgInset}` }}>
-                    <td style={{ padding:"14px 12px",fontSize:14 }}><span style={{ fontWeight:600,color:t.textPrimary }}>{p.name}</span></td>
+                    <td style={{ padding:"14px 12px",fontSize:14 }}>
+                      <span onClick={()=>navigate(`/patients/${p.id}`)} style={{ fontWeight:600, color:t.accent, cursor:"pointer" }}>{p.name}</span>
+                    </td>
                     <td style={{ padding:"14px 12px",fontSize:14,color:t.textGhost }}>{p.phone||"—"}</td>
                     <td style={{ padding:"14px 12px",fontSize:14,color:t.textGhost }}>{p.email||"—"}</td>
                     <td style={{ padding:"14px 12px",textAlign:"right" }}>
