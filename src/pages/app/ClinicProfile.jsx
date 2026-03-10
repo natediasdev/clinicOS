@@ -16,6 +16,13 @@ export default function ClinicProfile() {
   const [name, setName] = useState(""); const [phone, setPhone] = useState(""); const [email, setEmail] = useState("")
   const [loading, setLoading] = useState(false); const [toast, setToast] = useState(null)
   const [stats, setStats] = useState({ patients: null, appointments: null })
+  const [isMobile, setIsMobile] = useState(window.innerWidth <= 768)
+
+  useEffect(() => {
+    function handleResize() { setIsMobile(window.innerWidth <= 768) }
+    window.addEventListener("resize", handleResize)
+    return () => window.removeEventListener("resize", handleResize)
+  }, [])
 
   useEffect(() => { if (clinic) { setName(clinic.name??""); setPhone(clinic.phone??""); setEmail(clinic.email??"") } }, [clinic])
 
@@ -60,13 +67,13 @@ export default function ClinicProfile() {
       )}
 
       <div style={{ color:t.textBody, fontFamily:"'DM Sans','Segoe UI',sans-serif" }}>
-        <header style={{ marginBottom:32 }}>
-          <h1 style={{ fontSize:28,fontWeight:800,margin:0,color:t.textPrimary,letterSpacing:"-0.5px" }}>Perfil da Clínica</h1>
+        <header style={{ marginBottom: isMobile ? 16 : 32 }}>
+          <h1 style={{ fontSize: isMobile ? 22 : 28, fontWeight:800, margin:0, color:t.textPrimary, letterSpacing:"-0.5px" }}>Perfil da Clínica</h1>
           <p style={{ margin:"4px 0 0",fontSize:13,color:t.textFaint }}>Gerencie as informações da sua clínica</p>
         </header>
 
-        <div style={{ display:"grid",gridTemplateColumns:"1fr 340px",gap:20,alignItems:"start" }}>
-          <div style={{ background:t.bgCard,borderRadius:12,padding:"28px 24px" }}>
+        <div style={{ display:"grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 340px", gap:20, alignItems:"start" }}>
+          <div style={{ background:t.bgCard, borderRadius:12, padding: isMobile ? "16px" : "28px 24px" }}>
             <h2 style={{ fontSize:13,fontWeight:700,color:t.textMuted,textTransform:"uppercase",letterSpacing:"0.08em",margin:"0 0 20px" }}>Informações gerais</h2>
             <form onSubmit={handleSave} style={{ display:"flex",flexDirection:"column",gap:18 }}>
               {[["Nome da clínica *","text","Ex: Clínica Odonto Saúde",name,setName],["Telefone","text","(00) 00000-0000",phone,setPhone],["E-mail de contato","email","contato@clinica.com",email,setEmail]].map(([lbl,type,ph,val,setter])=>(
@@ -88,7 +95,7 @@ export default function ClinicProfile() {
           </div>
 
           <div style={{ display:"flex",flexDirection:"column",gap:16 }}>
-            <div style={{ background:t.bgCard,borderRadius:12,padding:24,borderTop:`3px solid ${plan.color}` }}>
+            <div style={{ background:t.bgCard,borderRadius:12,padding:isMobile ? 16 : 24,borderTop:`3px solid ${plan.color}` }}>
               <div style={{ display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8 }}>
                 <span style={{ fontSize:13,fontWeight:700,color:t.textMuted,textTransform:"uppercase",letterSpacing:"0.08em" }}>Plano atual</span>
                 <span style={{ fontSize:11,fontWeight:700,border:`1px solid ${plan.color}44`,borderRadius:99,padding:"3px 10px",textTransform:"uppercase",color:plan.color }}>{plan.label}</span>
@@ -101,7 +108,7 @@ export default function ClinicProfile() {
               </a>
             </div>
 
-            <div style={{ background:t.bgCard,borderRadius:12,padding:24 }}>
+            <div style={{ background:t.bgCard,borderRadius:12,padding:isMobile ? 16 : 24 }}>
               <span style={{ fontSize:13,fontWeight:700,color:t.textMuted,textTransform:"uppercase",letterSpacing:"0.08em",display:"block",marginBottom:16 }}>Resumo da clínica</span>
               <div style={{ display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:16 }}>
                 {[["Pacientes",stats.patients],["Agendamentos",stats.appointments]].map(([lbl,val])=>(
@@ -115,9 +122,9 @@ export default function ClinicProfile() {
               </div>
               <div style={{ height:1,background:t.bgInset,margin:"4px 0 12px" }} />
               {[["Clínica criada em",createdAt],["ID da clínica",clinicId??"—"]].map(([lbl,val])=>(
-                <div key={lbl} style={{ display:"flex",justifyContent:"space-between",alignItems:"center",padding:"4px 0" }}>
-                  <span style={{ fontSize:12,color:t.textGhost }}>{lbl}</span>
-                  <span style={{ fontSize:12,color:t.textFaint,fontWeight:600,fontFamily:lbl.includes("ID")?"monospace":undefined }}>{val}</span>
+                <div key={lbl} style={{ display:"flex",justifyContent:"space-between",alignItems:"flex-start",padding:"4px 0",gap:8 }}>
+                  <span style={{ fontSize:12,color:t.textGhost,flexShrink:0 }}>{lbl}</span>
+                  <span style={{ fontSize:12,color:t.textFaint,fontWeight:600,fontFamily:lbl.includes("ID")?"monospace":undefined,wordBreak:"break-all",textAlign:"right" }}>{val}</span>
                 </div>
               ))}
             </div>

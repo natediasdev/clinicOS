@@ -44,8 +44,7 @@ export default function Team() {
   const [fetching, setFetching] = useState(true)
   const [toast, setToast] = useState(null)
   const [removeConfirm, setRemoveConfirm] = useState(null)
-
-  // Invite form
+  const [isMobile, setIsMobile] = useState(window.innerWidth <= 768)
   const [inviteEmail, setInviteEmail] = useState("")
   const [inviteRole, setInviteRole] = useState("dentist")
   const [inviteName, setInviteName] = useState("")
@@ -53,102 +52,44 @@ export default function Team() {
   const [inviting, setInviting] = useState(false)
   const [inviteError, setInviteError] = useState(null)
 
-  function showToast(msg, type = "success") {
-    setToast({ msg, type })
-    setTimeout(() => setToast(null), 4000)
-  }
+  useEffect(() => {
+    function handleResize() { setIsMobile(window.innerWidth <= 768) }
+    window.addEventListener("resize", handleResize)
+    return () => window.removeEventListener("resize", handleResize)
+  }, [])
+
+  function showToast(msg, type = "success") { setToast({ msg, type }); setTimeout(() => setToast(null), 4000) }
 
   async function fetchMembers() {
     setFetching(true)
-    const { data, error } = await supabase
-      .from("staff")
-      .select("*")
-      .eq("clinic_id", clinicId)
-      .is("deleted_at", null)
-      .order("created_at", { ascending: false })
+    const { data, error } = await supabase.from("staff").select("*").eq("clinic_id", clinicId).is("deleted_at", null).order("created_at", { ascending: false })
     if (!error) setMembers(data ?? [])
     setFetching(false)
   }
 
   async function handleInvite() {
-    if (!inviteEmail.trim() || !inviteName.trim()) {
-      setInviteError("Nome e e-mail são obrigatórios.")
-      return
-    }
-    setInviteError(null)
-    setInviting(true)
-
-    // Verifica limite do plano
+    if (!inviteEmail.trim() || !inviteName.trim()) { setInviteError("Nome e e-mail são obrigatórios."); return }
+    setInviteError(null); setInviting(true)
     const staffLimit = clinic?.staff_limit ?? 1
-    if (members.length >= staffLimit) {
-      setInviteError(`Limite de ${staffLimit} membro(s) atingido no plano atual. Faça upgrade para adicionar mais.`)
-      setInviting(false)
-      return
-    }
-
-    // 1. Registra na tabela staff
-    const { error: staffError } = await supabase
-      .from("staff")
-      .insert([{
-        clinic_id: clinicId,
-        name: inviteName.trim(),
-        email: inviteEmail.trim().toLowerCase(),
-        role: inviteRole,
-        specialty: inviteSpecialty.trim() || null,
-      }])
-
-    if (staffError) {
-      setInviteError(staffError.message)
-      setInviting(false)
-      return
-    }
-
-    // 2. Envia convite via Edge Function
-    const { error: inviteError } = await supabase.functions.invoke("invite-member", {
-      body: {
-        email: inviteEmail.trim().toLowerCase(),
-        name: inviteName.trim(),
-        role: inviteRole,
-        clinic_id: clinicId,
-      },
-    })
-
+    if (members.length >= staffLimit) { setInviteError(`Limite de ${staffLimit} membro(s) atingido. Faça upgrade.`); setInviting(false); return }
+    const { error: staffError } = await supabase.from("staff").insert([{ clinic_id: clinicId, name: inviteName.trim(), email: inviteEmail.trim().toLowerCase(), role: inviteRole, specialty: inviteSpecialty.trim() || null }])
+    if (staffError) { setInviteError(staffError.message); setInviting(false); return }
+    const { error: invErr } = await supabase.functions.invoke("invite-member", { body: { email: inviteEmail.trim().toLowerCase(), name: inviteName.trim(), role: inviteRole, clinic_id: clinicId } })
     setInviting(false)
-
-    if (inviteError) {
-      // Convite falhou mas staff foi criado — avisa mas não bloqueia
-      showToast("Membro adicionado, mas o email de convite falhou. Envie o link manualmente.", "info")
-    } else {
-      showToast(`Convite enviado para ${inviteEmail}!`)
-    }
-
-    setInviteEmail("")
-    setInviteName("")
-    setInviteSpecialty("")
-    setInviteRole("dentist")
+    if (invErr) showToast("Membro adicionado, mas o email de convite falhou. Envie o link manualmente.", "info")
+    else showToast(`Convite enviado para ${inviteEmail}!`)
+    setInviteEmail(""); setInviteName(""); setInviteSpecialty(""); setInviteRole("dentist")
     fetchMembers()
   }
 
   async function handleRemove(id) {
-    const { error } = await supabase
-      .from("staff")
-      .update({ deleted_at: new Date().toISOString() })
-      .eq("id", id)
-    if (!error) {
-      setRemoveConfirm(null)
-      fetchMembers()
-      showToast("Membro removido da equipe.", "error")
-    }
+    const { error } = await supabase.from("staff").update({ deleted_at: new Date().toISOString() }).eq("id", id)
+    if (!error) { setRemoveConfirm(null); fetchMembers(); showToast("Membro removido da equipe.", "error") }
   }
 
   useEffect(() => { if (clinicId) fetchMembers() }, [clinicId])
 
-  const inp = {
-    background: t.bgInput, border: `1px solid ${t.border}`, borderRadius: 8,
-    padding: "10px 12px", fontSize: 14, color: t.textPrimary, outline: "none",
-    transition: "border-color 0.2s", width: "100%", boxSizing: "border-box",
-  }
-
+  const inp = { background: t.bgInput, border: `1px solid ${t.border}`, borderRadius: 8, padding: "10px 12px", fontSize: 14, color: t.textPrimary, outline: "none", transition: "border-color 0.2s", width: "100%", boxSizing: "border-box" }
   const staffLimit = clinic?.staff_limit ?? 1
   const atLimit = members.length >= staffLimit
 
@@ -156,125 +97,108 @@ export default function Team() {
     <AppLayout>
       <Toast toast={toast} />
       <div style={{ color: t.textBody, fontFamily: "'DM Sans','Segoe UI',sans-serif" }}>
-
-        {/* Header */}
-        <header style={{ marginBottom: 32 }}>
-          <h1 style={{ fontSize: 28, fontWeight: 800, margin: 0, color: t.textPrimary, letterSpacing: "-0.5px" }}>Equipe</h1>
+        <header style={{ marginBottom: isMobile ? 16 : 32 }}>
+          <h1 style={{ fontSize: isMobile ? 22 : 28, fontWeight: 800, margin: 0, color: t.textPrimary, letterSpacing: "-0.5px" }}>Equipe</h1>
           <p style={{ margin: "4px 0 0", fontSize: 13, color: t.textFaint }}>Gerencie os membros da sua clínica</p>
         </header>
 
-        {/* Limite do plano */}
-        <div style={{ background: t.bgCard, borderRadius: 12, padding: "16px 20px", marginBottom: 20, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+        <div style={{ background: t.bgCard, borderRadius: 12, padding: "16px 20px", marginBottom: 20, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
             <span style={{ fontSize: 20 }}>👥</span>
             <div>
-              <span style={{ fontSize: 14, fontWeight: 600, color: t.textPrimary }}>
-                {members.length} de {staffLimit === 999 ? "ilimitados" : staffLimit} membros
-              </span>
+              <span style={{ fontSize: 14, fontWeight: 600, color: t.textPrimary }}>{members.length} de {staffLimit === 999 ? "ilimitados" : staffLimit} membros</span>
               <p style={{ margin: "2px 0 0", fontSize: 12, color: t.textFaint }}>Plano {clinic?.plan ?? "free"}</p>
             </div>
           </div>
-          {/* Barra de uso */}
           {staffLimit !== 999 && (
-            <div style={{ width: 160 }}>
+            <div style={{ width: isMobile ? "100%" : 160 }}>
               <div style={{ height: 6, background: t.bgInset, borderRadius: 99, overflow: "hidden" }}>
-                <div style={{
-                  height: "100%", borderRadius: 99, transition: "width 0.4s",
-                  width: `${Math.min((members.length / staffLimit) * 100, 100)}%`,
-                  background: atLimit ? "#ef4444" : "#3b82f6",
-                }} />
+                <div style={{ height: "100%", borderRadius: 99, transition: "width 0.4s", width: `${Math.min((members.length / staffLimit) * 100, 100)}%`, background: atLimit ? "#ef4444" : "#3b82f6" }} />
               </div>
             </div>
           )}
         </div>
 
-        {/* Formulário de convite */}
-        <div style={{ background: t.bgCard, borderRadius: 12, padding: "24px", marginBottom: 20 }}>
-          <h2 style={{ fontSize: 13, fontWeight: 700, color: t.textMuted, textTransform: "uppercase", letterSpacing: "0.08em", margin: "0 0 16px" }}>
-            Convidar membro
-          </h2>
-
-          {atLimit && (
-            <div style={{ background: t.errorBg, border: `1px solid ${t.errorBorder}`, color: t.errorText, borderRadius: 8, padding: "10px 14px", fontSize: 13, marginBottom: 16 }}>
-              Limite de membros atingido. Faça upgrade do plano para adicionar mais.
-            </div>
-          )}
-
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
-            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-              <label style={{ fontSize: 12, fontWeight: 600, color: t.textFaint }}>Nome *</label>
-              <input type="text" placeholder="Nome completo" value={inviteName}
-                onChange={e => setInviteName(e.target.value)} style={inp} disabled={atLimit}
-                onFocus={e => e.target.style.borderColor = t.accent}
-                onBlur={e => e.target.style.borderColor = t.border} />
-            </div>
-            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-              <label style={{ fontSize: 12, fontWeight: 600, color: t.textFaint }}>E-mail *</label>
-              <input type="email" placeholder="membro@clinica.com" value={inviteEmail}
-                onChange={e => setInviteEmail(e.target.value)} style={inp} disabled={atLimit}
-                onFocus={e => e.target.style.borderColor = t.accent}
-                onBlur={e => e.target.style.borderColor = t.border} />
-            </div>
+        <div style={{ background: t.bgCard, borderRadius: 12, padding: isMobile ? "16px" : "24px", marginBottom: 20 }}>
+          <h2 style={{ fontSize: 13, fontWeight: 700, color: t.textMuted, textTransform: "uppercase", letterSpacing: "0.08em", margin: "0 0 16px" }}>Convidar membro</h2>
+          {atLimit && <div style={{ background: t.errorBg, border: `1px solid ${t.errorBorder}`, color: t.errorText, borderRadius: 8, padding: "10px 14px", fontSize: 13, marginBottom: 16 }}>Limite de membros atingido. Faça upgrade do plano para adicionar mais.</div>}
+          <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 14 }}>
+            {[["Nome *","text","Nome completo",inviteName,setInviteName],["E-mail *","email","membro@clinica.com",inviteEmail,setInviteEmail]].map(([lbl,type,ph,val,setter]) => (
+              <div key={lbl} style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                <label style={{ fontSize: 12, fontWeight: 600, color: t.textFaint }}>{lbl}</label>
+                <input type={type} placeholder={ph} value={val} onChange={e => setter(e.target.value)} style={inp} disabled={atLimit}
+                  onFocus={e => e.target.style.borderColor = t.accent} onBlur={e => e.target.style.borderColor = t.border} />
+              </div>
+            ))}
             <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
               <label style={{ fontSize: 12, fontWeight: 600, color: t.textFaint }}>Função</label>
-              <select value={inviteRole} onChange={e => setInviteRole(e.target.value)} disabled={atLimit}
-                style={{ ...inp, cursor: "pointer" }}>
-                {Object.entries(ROLE_CONFIG).filter(([k]) => k !== "admin").map(([k, v]) => (
-                  <option key={k} value={k}>{v.label}</option>
-                ))}
+              <select value={inviteRole} onChange={e => setInviteRole(e.target.value)} disabled={atLimit} style={{ ...inp, cursor: "pointer" }}>
+                {Object.entries(ROLE_CONFIG).filter(([k]) => k !== "admin").map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
               </select>
             </div>
             <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
               <label style={{ fontSize: 12, fontWeight: 600, color: t.textFaint }}>Especialidade</label>
               <input type="text" placeholder="Ex: Ortodontia, Clínica Geral..." value={inviteSpecialty}
                 onChange={e => setInviteSpecialty(e.target.value)} style={inp} disabled={atLimit}
-                onFocus={e => e.target.style.borderColor = t.accent}
-                onBlur={e => e.target.style.borderColor = t.border} />
+                onFocus={e => e.target.style.borderColor = t.accent} onBlur={e => e.target.style.borderColor = t.border} />
             </div>
           </div>
-
-          {inviteError && (
-            <div style={{ background: t.errorBg, border: `1px solid ${t.errorBorder}`, color: t.errorText, borderRadius: 8, padding: "10px 14px", fontSize: 13, marginTop: 14 }}>
-              {inviteError}
-            </div>
-          )}
-
+          {inviteError && <div style={{ background: t.errorBg, border: `1px solid ${t.errorBorder}`, color: t.errorText, borderRadius: 8, padding: "10px 14px", fontSize: 13, marginTop: 14 }}>{inviteError}</div>}
           <button onClick={handleInvite} disabled={inviting || atLimit || !inviteEmail.trim() || !inviteName.trim()}
-            style={{ marginTop: 16, background: t.accent, border: "none", borderRadius: 8, padding: "11px 24px", fontSize: 14, fontWeight: 700, color: "#fff", cursor: "pointer",
-              opacity: inviting || atLimit || !inviteEmail.trim() || !inviteName.trim() ? 0.5 : 1 }}>
+            style={{ marginTop: 16, background: t.accent, border: "none", borderRadius: 8, padding: "11px 24px", fontSize: 14, fontWeight: 700, color: "#fff", cursor: "pointer", width: isMobile ? "100%" : "auto", opacity: inviting || atLimit || !inviteEmail.trim() || !inviteName.trim() ? 0.5 : 1 }}>
             {inviting ? "Enviando convite..." : "✉️ Enviar convite"}
           </button>
-
-          <p style={{ margin: "10px 0 0", fontSize: 12, color: t.textGhost }}>
-            O membro receberá um email com link para definir a senha e acessar o sistema.
-          </p>
+          <p style={{ margin: "10px 0 0", fontSize: 12, color: t.textGhost }}>O membro receberá um email com link para definir a senha e acessar o sistema.</p>
         </div>
 
-        {/* Lista de membros */}
-        <div style={{ background: t.bgCard, borderRadius: 12, padding: "24px" }}>
+        <div style={{ background: t.bgCard, borderRadius: 12, padding: isMobile ? "16px" : "24px" }}>
           <h2 style={{ fontSize: 13, fontWeight: 700, color: t.textMuted, textTransform: "uppercase", letterSpacing: "0.08em", margin: "0 0 16px", display: "flex", alignItems: "center", gap: 10 }}>
             Membros
             {!fetching && <span style={{ background: t.bgInset, color: t.accent, fontSize: 12, fontWeight: 700, padding: "2px 10px", borderRadius: 99 }}>{members.length}</span>}
           </h2>
-
           {fetching ? (
-            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-              {[1,2,3].map(i => <div key={i} className="skeleton-shimmer" style={{ height: 56 }} />)}
-            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>{[1,2,3].map(i => <div key={i} className="skeleton-shimmer" style={{ height: 56 }} />)}</div>
           ) : members.length === 0 ? (
             <div style={{ textAlign: "center", padding: "48px 0", display: "flex", flexDirection: "column", alignItems: "center", gap: 8 }}>
               <span style={{ fontSize: 36 }}>👥</span>
               <p style={{ fontSize: 15, color: t.textGhost, margin: 0, fontWeight: 600 }}>Nenhum membro na equipe ainda.</p>
               <p style={{ fontSize: 13, color: t.textDisabled, margin: 0 }}>Use o formulário acima para convidar o primeiro.</p>
             </div>
+          ) : isMobile ? (
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              {members.map(m => (
+                <div key={m.id} style={{ background: t.bgInset, borderRadius: 10, padding: "14px 16px", display: "flex", flexDirection: "column", gap: 10 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                    <div style={{ width: 38, height: 38, borderRadius: "50%", background: (ROLE_CONFIG[m.role]?.color ?? "#64748b") + "22", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, fontWeight: 700, color: ROLE_CONFIG[m.role]?.color ?? "#64748b", flexShrink: 0 }}>
+                      {m.name?.[0]?.toUpperCase() ?? "?"}
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <span style={{ fontWeight: 700, color: t.textPrimary, fontSize: 15, display: "block" }}>{m.name ?? "—"}</span>
+                      <span style={{ fontSize: 12, color: t.textGhost, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", display: "block" }}>{m.email ?? "—"}</span>
+                    </div>
+                    <RoleBadge role={m.role} />
+                  </div>
+                  {m.specialty && <span style={{ fontSize: 13, color: t.textGhost }}>🔬 {m.specialty}</span>}
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <span style={{ fontSize: 12, color: t.textGhost }}>{m.created_at ? new Date(m.created_at).toLocaleDateString("pt-BR") : "—"}</span>
+                    {removeConfirm === m.id ? (
+                      <span style={{ display: "flex", gap: 6 }}>
+                        <button onClick={() => handleRemove(m.id)} style={{ background: t.errorBg, border: "none", color: t.errorText, borderRadius: 6, padding: "6px 10px", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>Sim</button>
+                        <button onClick={() => setRemoveConfirm(null)} style={{ background: t.bgCard, border: `1px solid ${t.border}`, color: t.textMuted, borderRadius: 6, padding: "6px 10px", fontSize: 12, cursor: "pointer" }}>Não</button>
+                      </span>
+                    ) : (
+                      <button onClick={() => setRemoveConfirm(m.id)} style={{ background: "transparent", border: `1px solid ${t.borderStrong}`, color: t.textFaint, borderRadius: 6, padding: "5px 14px", fontSize: 12, cursor: "pointer" }}>Remover</button>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
           ) : (
             <table style={{ width: "100%", borderCollapse: "collapse" }}>
               <thead>
-                <tr>
-                  {["Membro", "Função", "Especialidade", "Adicionado em", ""].map((h, i) => (
-                    <th key={i} style={{ fontSize: 11, fontWeight: 700, color: t.textGhost, textTransform: "uppercase", letterSpacing: "0.08em", padding: "0 12px 12px", textAlign: i === 4 ? "right" : "left", borderBottom: `1px solid ${t.bgInset}` }}>{h}</th>
-                  ))}
-                </tr>
+                <tr>{["Membro", "Função", "Especialidade", "Adicionado em", ""].map((h, i) => (
+                  <th key={i} style={{ fontSize: 11, fontWeight: 700, color: t.textGhost, textTransform: "uppercase", letterSpacing: "0.08em", padding: "0 12px 12px", textAlign: i === 4 ? "right" : "left", borderBottom: `1px solid ${t.bgInset}` }}>{h}</th>
+                ))}</tr>
               </thead>
               <tbody>
                 {members.map(m => (
@@ -292,9 +216,7 @@ export default function Team() {
                     </td>
                     <td style={{ padding: "14px 12px" }}><RoleBadge role={m.role} /></td>
                     <td style={{ padding: "14px 12px", fontSize: 13, color: t.textGhost }}>{m.specialty ?? "—"}</td>
-                    <td style={{ padding: "14px 12px", fontSize: 12, color: t.textGhost }}>
-                      {m.created_at ? new Date(m.created_at).toLocaleDateString("pt-BR") : "—"}
-                    </td>
+                    <td style={{ padding: "14px 12px", fontSize: 12, color: t.textGhost }}>{m.created_at ? new Date(m.created_at).toLocaleDateString("pt-BR") : "—"}</td>
                     <td style={{ padding: "14px 12px", textAlign: "right" }}>
                       {removeConfirm === m.id ? (
                         <span style={{ display: "flex", alignItems: "center", gap: 8, justifyContent: "flex-end" }}>
@@ -303,9 +225,7 @@ export default function Team() {
                           <button onClick={() => setRemoveConfirm(null)} style={{ background: t.bgCard, border: `1px solid ${t.border}`, color: t.textMuted, borderRadius: 6, padding: "5px 12px", fontSize: 12, cursor: "pointer" }}>Não</button>
                         </span>
                       ) : (
-                        <button onClick={() => setRemoveConfirm(m.id)} style={{ background: "transparent", border: `1px solid ${t.borderStrong}`, color: t.textFaint, borderRadius: 6, padding: "5px 14px", fontSize: 12, cursor: "pointer" }}>
-                          Remover
-                        </button>
+                        <button onClick={() => setRemoveConfirm(m.id)} style={{ background: "transparent", border: `1px solid ${t.borderStrong}`, color: t.textFaint, borderRadius: 6, padding: "5px 14px", fontSize: 12, cursor: "pointer" }}>Remover</button>
                       )}
                     </td>
                   </tr>
