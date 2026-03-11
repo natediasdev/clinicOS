@@ -8,8 +8,9 @@ const ALL_NAV_ITEMS = [
   { path: "/dashboard",    label: "Dashboard",     icon: "⊞", permission: "canViewDashboard" },
   { path: "/patients",     label: "Pacientes",     icon: "🦷", permission: "canViewPatients" },
   { path: "/appointments", label: "Agendamentos",  icon: "📅", permission: "canViewAppointments" },
-  { path: "/profile",      label: "Minha Clínica", icon: "⚙️", permission: "canViewClinicProfile" },
   { path: "/team",         label: "Equipe",        icon: "👥", permission: "canViewTeam" },
+  { path: "/financeiro",   label: "Financeiro",    icon: "💰", permission: "canViewDashboard" },
+  { path: "/profile",      label: "Minha Clínica", icon: "⚙️", permission: "canViewClinicProfile" },
 ]
 
 export default function AppLayout({ children }) {

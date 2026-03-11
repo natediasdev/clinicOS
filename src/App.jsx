@@ -6,6 +6,7 @@ import PatientRecord from "./pages/app/PatientRecord"
 import Appointments from "./pages/auth/Appointments"
 import ClinicProfile from "./pages/app/ClinicProfile"
 import Team from "./pages/app/Team"
+import Financial from "./pages/app/Financial"
 import PrivacyPolicy from "./pages/public/PrivacyPolicy"
 import TermsOfUse from "./pages/public/TermsOfUse"
 import Onboarding from "./pages/onboarding/Onboarding"
@@ -86,6 +87,9 @@ function App() {
         />
         <Route path="/team"
           element={<PrivateRoute><Team /></PrivateRoute>}
+        />
+        <Route path="/financeiro"
+          element={<PrivateRoute><Financial /></PrivateRoute>}
         />
 
         {/*
