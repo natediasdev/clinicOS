@@ -8,8 +8,8 @@ const ALL_NAV_ITEMS = [
   { path: "/dashboard",    label: "Dashboard",     icon: "⊞", permission: "canViewDashboard" },
   { path: "/patients",     label: "Pacientes",     icon: "🦷", permission: "canViewPatients" },
   { path: "/appointments", label: "Agendamentos",  icon: "📅", permission: "canViewAppointments" },
-  { path: "/team",         label: "Equipe",        icon: "👥", permission: "canViewTeam" },
   { path: "/financeiro",   label: "Financeiro",    icon: "💰", permission: "canViewDashboard" },
+  { path: "/team",         label: "Equipe",        icon: "👥", permission: "canViewTeam" },
   { path: "/profile",      label: "Minha Clínica", icon: "⚙️", permission: "canViewClinicProfile" },
 ]
 
@@ -64,8 +64,12 @@ export default function AppLayout({ children }) {
           zIndex: 100,
           background: t.bgSidebar,
           borderBottom: `1px solid ${t.border}`,
-          padding: "0 16px",
-          height: 56,
+          // Safe area: respeita notch e barra de status do celular
+          paddingTop: "env(safe-area-inset-top, 0px)",
+          paddingLeft: "max(16px, env(safe-area-inset-left, 0px))",
+          paddingRight: "max(16px, env(safe-area-inset-right, 0px))",
+          paddingBottom: 0,
+          minHeight: 56,
           display: "flex",
           alignItems: "center",
           justifyContent: "space-between",
@@ -258,7 +262,9 @@ export default function AppLayout({ children }) {
         minWidth: 0,
         maxWidth: "100%",
         overflowX: "hidden",
-        padding: isMobile ? "20px 16px" : "32px 40px",
+        padding: isMobile
+          ? `20px max(16px, env(safe-area-inset-right, 0px)) max(20px, env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px))`
+          : "32px 40px",
         boxSizing: "border-box",
         fontSize: isMobile ? "14px" : "16px",
       }}>
