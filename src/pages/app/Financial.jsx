@@ -21,11 +21,13 @@ const STATUS_CONFIG = {
 }
 
 const PERIOD_OPTIONS = [
-  { label: "Este mês",       value: "this_month" },
-  { label: "Mês passado",    value: "last_month" },
-  { label: "Últimos 3 meses",value: "3_months"   },
-  { label: "Este ano",       value: "this_year"  },
-  { label: "Tudo",           value: "all"        },
+  { label: "Esta semana",     value: "this_week"  },
+  { label: "2 semanas",       value: "2_weeks"    },
+  { label: "Este mês",        value: "this_month" },
+  { label: "Mês passado",     value: "last_month" },
+  { label: "Últimos 3 meses", value: "3_months"   },
+  { label: "Este ano",        value: "this_year"  },
+  { label: "Tudo",            value: "all"        },
 ]
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -42,8 +44,17 @@ function formatDate(iso) {
 
 function getPeriodRange(period) {
   const now = new Date()
-  const y = now.getFullYear(), m = now.getMonth()
+  const y = now.getFullYear(), m = now.getMonth(), d = now.getDate()
+  const dow = now.getDay() // 0=dom
   switch (period) {
+    case "this_week": {
+      const startOfWeek = new Date(y, m, d - (dow === 0 ? 6 : dow - 1))
+      return { start: startOfWeek, end: new Date(y, m, d, 23, 59, 59) }
+    }
+    case "2_weeks": {
+      const twoWeeksAgo = new Date(y, m, d - 13)
+      return { start: twoWeeksAgo, end: new Date(y, m, d, 23, 59, 59) }
+    }
     case "this_month":  return { start: new Date(y, m, 1),   end: new Date(y, m+1, 0, 23,59,59) }
     case "last_month":  return { start: new Date(y, m-1, 1), end: new Date(y, m, 0, 23,59,59) }
     case "3_months":    return { start: new Date(y, m-3, 1), end: new Date(y, m+1, 0, 23,59,59) }
@@ -235,12 +246,12 @@ function PaymentModal({ onClose, onSave, clinicId }) {
 
 // ─── Card de métrica ──────────────────────────────────────────────────────────
 
-function MetricCard({ label, value, sub, accent, t }) {
+function MetricCard({ label, value, sub, accent, t, isMobile }) {
   return (
-    <div style={{ background:t.bgCard, borderRadius:12, padding:"20px", borderTop:`3px solid ${accent}`, display:"flex", flexDirection:"column", gap:4 }}>
-      <span style={{ fontSize:32, fontWeight:800, color:accent, letterSpacing:"-1px", lineHeight:1 }}>{value}</span>
-      <span style={{ fontSize:13, fontWeight:600, color:t.textBody, marginTop:4 }}>{label}</span>
-      {sub && <span style={{ fontSize:11, color:t.textGhost }}>{sub}</span>}
+    <div style={{ background:t.bgCard, borderRadius:12, padding: isMobile ? "14px" : "20px", borderTop:`3px solid ${accent}`, display:"flex", flexDirection:"column", gap:4, minWidth:0, overflow:"hidden" }}>
+      <span style={{ fontSize: isMobile ? 20 : 28, fontWeight:800, color:accent, letterSpacing:"-0.5px", lineHeight:1.1, wordBreak:"break-word" }}>{value}</span>
+      <span style={{ fontSize: isMobile ? 11 : 13, fontWeight:600, color:t.textBody, marginTop:4, lineHeight:1.3 }}>{label}</span>
+      {sub && <span style={{ fontSize: isMobile ? 10 : 11, color:t.textGhost }}>{sub}</span>}
     </div>
   )
 }
@@ -260,6 +271,7 @@ export default function Financial() {
   const [period,       setPeriod]       = useState("this_month")
   const [filterStatus, setFilterStatus] = useState("all")
   const [editingId,    setEditingId]    = useState(null)
+  const [query,        setQuery]        = useState("")
 
   function showToast(msg, type="success") { setToast({msg,type}); setTimeout(()=>setToast(null),3000) }
 
@@ -301,7 +313,15 @@ export default function Financial() {
   useEffect(() => { fetchPayments() }, [period])
 
   // Métricas calculadas
-  const filtered  = filterStatus==="all" ? payments : payments.filter(p=>p.status===filterStatus)
+  const byStatus  = filterStatus==="all" ? payments : payments.filter(p=>p.status===filterStatus)
+  const filtered  = query.trim()
+    ? byStatus.filter(p => {
+        const name = patientMap[p.patient_id]?.toLowerCase() ?? ""
+        const desc = p.description?.toLowerCase() ?? ""
+        const q    = query.toLowerCase()
+        return name.includes(q) || desc.includes(q)
+      })
+    : byStatus
   const totalPaid = payments.filter(p=>p.status==="paid").reduce((s,p)=>s+(parseFloat(p.final_amount)||0),0)
   const totalPend = payments.filter(p=>p.status==="pending").reduce((s,p)=>s+(parseFloat(p.final_amount)||0),0)
   const totalAll  = payments.reduce((s,p)=>s+(parseFloat(p.final_amount)||0),0)
@@ -338,18 +358,18 @@ export default function Financial() {
         </header>
 
         {/* Cards de métricas */}
-        <div style={{ display:"grid", gridTemplateColumns: isMobile?"1fr 1fr":"repeat(4,1fr)", gap: isMobile?10:16, marginBottom: isMobile?16:24 }}>
-          <MetricCard label="Total recebido"  value={formatCurrency(totalPaid)} sub={`${countPaid} pagamentos`}    accent="#22c55e" t={t} />
-          <MetricCard label="A receber"       value={formatCurrency(totalPend)} sub="pagamentos pendentes"          accent="#f59e0b" t={t} />
-          <MetricCard label="Total do período" value={formatCurrency(totalAll)} sub="incluindo pendentes"            accent="#3b82f6" t={t} />
-          <MetricCard label="Lançamentos"     value={payments.length}           sub="no período selecionado"         accent="#8b5cf6" t={t} />
+        <div style={{ display:"grid", gridTemplateColumns: isMobile?"1fr 1fr":"repeat(4,1fr)", gap: isMobile?8:16, marginBottom: isMobile?16:24 }}>
+          <MetricCard label="Total recebido"   value={formatCurrency(totalPaid)} sub={`${countPaid} pagamentos`} accent="#22c55e" t={t} isMobile={isMobile} />
+          <MetricCard label="A receber"        value={formatCurrency(totalPend)} sub="pendentes"                 accent="#f59e0b" t={t} isMobile={isMobile} />
+          <MetricCard label="Total do período" value={formatCurrency(totalAll)}  sub="incl. pendentes"           accent="#3b82f6" t={t} isMobile={isMobile} />
+          <MetricCard label="Lançamentos"      value={payments.length}           sub="no período"                accent="#8b5cf6" t={t} isMobile={isMobile} />
         </div>
 
         {/* Lista */}
         <div style={{ background:t.bgCard, borderRadius:12, padding: isMobile?"16px":"24px" }}>
 
           {/* Filtros de status */}
-          <div style={{ display:"flex", gap:8, marginBottom:20, overflowX:"auto", paddingBottom:4 }}>
+          <div style={{ display:"flex", gap:8, marginBottom:12, overflowX:"auto", paddingBottom:4 }}>
             {[["all","Todos",payments.length],
               ["paid","Pagos",payments.filter(p=>p.status==="paid").length],
               ["pending","Pendentes",payments.filter(p=>p.status==="pending").length],
@@ -368,15 +388,36 @@ export default function Financial() {
             ))}
           </div>
 
+          {/* Campo de busca */}
+          <div style={{ position:"relative", marginBottom:16 }}>
+            <span style={{ position:"absolute", left:12, top:"50%", transform:"translateY(-50%)", fontSize:14, color:t.textGhost, pointerEvents:"none" }}>🔍</span>
+            <input
+              type="text"
+              placeholder="Buscar por paciente ou descrição..."
+              value={query}
+              onChange={e=>setQuery(e.target.value)}
+              style={{ background:t.bgInset, border:`1px solid ${t.border}`, borderRadius:8, padding:"10px 12px 10px 36px", fontSize:14, color:t.textPrimary, outline:"none", width:"100%", boxSizing:"border-box" }}
+              onFocus={e=>e.target.style.borderColor=t.accent}
+              onBlur={e=>e.target.style.borderColor=t.border}
+            />
+            {query && (
+              <button onClick={()=>setQuery("")} style={{ position:"absolute",right:8,top:"50%",transform:"translateY(-50%)",background:"transparent",border:"none",color:t.textGhost,cursor:"pointer",fontSize:16 }}>✕</button>
+            )}
+          </div>
+
           {fetching ? (
             <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
               {[1,2,3,4].map(i=><div key={i} className="skeleton-shimmer" style={{ height:56 }}/>)}
             </div>
           ) : filtered.length === 0 ? (
             <div style={{ textAlign:"center", padding:"48px 0", display:"flex", flexDirection:"column", alignItems:"center", gap:8 }}>
-              <span style={{ fontSize:36 }}>💰</span>
-              <p style={{ fontSize:15, color:t.textGhost, margin:0, fontWeight:600 }}>Nenhum lançamento encontrado</p>
-              <p style={{ fontSize:13, color:t.textDisabled, margin:0 }}>Clique em "+ Novo lançamento" para começar.</p>
+              <span style={{ fontSize:36 }}>{query ? "🔍" : "💰"}</span>
+              <p style={{ fontSize:15, color:t.textGhost, margin:0, fontWeight:600 }}>
+                {query ? `Nenhum resultado para "${query}"` : "Nenhum lançamento encontrado"}
+              </p>
+              <p style={{ fontSize:13, color:t.textDisabled, margin:0 }}>
+                {query ? "Tente outro termo de busca." : "Clique em \"+ Novo lançamento\" para começar."}
+              </p>
             </div>
           ) : isMobile ? (
             // Cards mobile
