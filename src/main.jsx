@@ -2,147 +2,79 @@ import React from 'react'
 import ReactDOM from 'react-dom/client'
 import App from './App'
 import { AuthProvider } from './context/AuthContext'
-import { ThemeProvider } from './context/ThemeContext'
 
-// Reset global + animações do loader
-const resetStyle = document.createElement('style')
-resetStyle.textContent = `
-  *, *::before, *::after {
-    box-sizing: border-box;
-    margin: 0;
-    padding: 0;
-  }
-  html, body, #root {
-    width: 100%;
-    max-width: 100%;
-    min-height: 100vh;
-    overflow-x: hidden;
-    background: #0a1120;
-    -webkit-tap-highlight-color: transparent;
-    -webkit-text-size-adjust: 100%;
-  }
-  input, select, textarea, button {
-    font-family: inherit;
-  }
+// ─── Loading screen DOM ───────────────────────────────────────────────────────
+// Injetada diretamente no DOM antes do React montar.
+// Cobre o flash de tela preta enquanto o bundle carrega.
+// Removida com fade out suave no primeiro requestAnimationFrame após mount.
 
-  @keyframes clinicos-pulse {
-    0%, 100% { opacity: 1; transform: scale(1); }
-    50%       { opacity: 0.6; transform: scale(0.97); }
+const CSS = `
+  @keyframes _co_ring{to{transform:rotate(360deg)}}
+  @keyframes _co_pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.4;transform:scale(.92)}}
+  @keyframes _co_bar{0%{width:0}70%{width:85%}100%{width:92%}}
+  @keyframes _co_dot{0%,80%,100%{transform:scale(0);opacity:0}40%{transform:scale(1);opacity:1}}
+  @keyframes _co_in{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+  @keyframes _co_glow{0%,100%{box-shadow:0 0 20px rgba(59,130,246,.15)}50%{box-shadow:0 0 40px rgba(59,130,246,.3),0 0 80px rgba(59,130,246,.08)}}
+  #co-splash{
+    position:fixed;inset:0;background:#080f1a;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;
+    z-index:99999;font-family:'DM Sans','Segoe UI',sans-serif;
   }
-  @keyframes clinicos-bar {
-    0%   { width: 0%; opacity: 1; }
-    80%  { width: 85%; opacity: 1; }
-    100% { width: 100%; opacity: 0; }
-  }
-  @keyframes clinicos-fade-in {
-    from { opacity: 0; transform: translateY(10px); }
-    to   { opacity: 1; transform: translateY(0); }
-  }
-  @keyframes clinicos-dot {
-    0%, 80%, 100% { transform: scale(0.5); opacity: 0.2; }
-    40%           { transform: scale(1);   opacity: 1; }
-  }
-  @keyframes clinicos-glow {
-    0%, 100% { opacity: 0.4; transform: scale(1); }
-    50%       { opacity: 0.8; transform: scale(1.1); }
-  }
+  #co-splash.out{animation:_co_out .4s ease forwards}
+  @keyframes _co_out{to{opacity:0;pointer-events:none}}
+  .co-rw{position:relative;width:80px;height:80px;margin-bottom:28px}
+  .co-ring{position:absolute;inset:-6px;border:2px solid transparent;border-top-color:#3b82f6;border-right-color:rgba(59,130,246,.25);border-radius:50%;animation:_co_ring 1.2s linear infinite}
+  .co-box{width:80px;height:80px;background:linear-gradient(135deg,#0f1f3d,#1a2d50);border-radius:20px;display:flex;align-items:center;justify-content:center;border:1px solid rgba(59,130,246,.2);animation:_co_glow 2.4s ease-in-out infinite}
+  .co-lt{font-size:28px;font-weight:900;letter-spacing:-1px;color:#f8fafc;animation:_co_pulse 2.4s ease-in-out infinite;user-select:none}
+  .co-la{color:#3b82f6}
+  .co-name{font-size:20px;font-weight:800;color:#f1f5f9;letter-spacing:-.5px;animation:_co_in .5s ease .1s both;margin-bottom:6px}
+  .co-msg{font-size:13px;color:#475569;font-weight:500;animation:_co_in .5s ease .2s both;margin-bottom:28px}
+  .co-bt{width:180px;height:3px;background:rgba(30,41,59,.8);border-radius:99px;overflow:hidden;animation:_co_in .5s ease .3s both;margin-bottom:20px}
+  .co-bf{height:100%;background:linear-gradient(90deg,#1d4ed8,#3b82f6,#60a5fa);border-radius:99px;animation:_co_bar 2s ease-out forwards}
+  .co-ds{display:flex;gap:6px;animation:_co_in .5s ease .4s both}
+  .co-d{width:6px;height:6px;background:#3b82f6;border-radius:50%;animation:_co_dot 1.4s ease-in-out infinite}
 `
-document.head.appendChild(resetStyle)
 
-// ── Loading screen injetada antes do React montar ──────────────────────────
-const loaderEl = document.createElement('div')
-loaderEl.id = 'clinicos-loader'
-loaderEl.style.cssText = `
-  position: fixed;
-  inset: 0;
-  background: #0a1120;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  z-index: 9999;
-  font-family: 'DM Sans', 'Segoe UI', sans-serif;
-`
-loaderEl.innerHTML = `
-  <div style="
-    position: absolute;
-    width: 500px; height: 500px;
-    background: radial-gradient(circle, #3b82f614 0%, transparent 70%);
-    border-radius: 50%;
-    pointer-events: none;
-    animation: clinicos-glow 3s ease-in-out infinite;
-  "></div>
+function mountSplash() {
+  const s = document.createElement("style")
+  s.textContent = CSS
+  document.head.appendChild(s)
 
-  <div style="
-    animation: clinicos-fade-in 0.5s ease forwards, clinicos-pulse 2.8s ease-in-out 0.6s infinite;
-    text-align: center;
-    margin-bottom: 44px;
-    position: relative;
-  ">
-    <div style="
-      font-size: 40px;
-      font-weight: 800;
-      color: #f8fafc;
-      letter-spacing: -1.5px;
-      line-height: 1;
-    ">
-      Clinic<span style="color: #3b82f6;">OS</span>
+  const el = document.createElement("div")
+  el.id = "co-splash"
+  el.innerHTML = `
+    <div class="co-rw">
+      <div class="co-ring"></div>
+      <div class="co-box"><span class="co-lt">C<span class="co-la">O</span></span></div>
     </div>
-    <div style="
-      font-size: 11px;
-      color: #1e3a5f;
-      margin-top: 8px;
-      letter-spacing: 0.2em;
-      text-transform: uppercase;
-      font-weight: 700;
-    ">Gestão Clínica</div>
-  </div>
-
-  <div style="
-    width: 140px; height: 2px;
-    background: #0f172a;
-    border-radius: 99px;
-    overflow: hidden;
-    margin-bottom: 32px;
-    animation: clinicos-fade-in 0.5s ease 0.2s both;
-  ">
-    <div style="
-      height: 100%;
-      background: linear-gradient(90deg, #1d4ed8, #3b82f6, #93c5fd);
-      border-radius: 99px;
-      animation: clinicos-bar 1.8s ease-in-out 0.4s infinite;
-    "></div>
-  </div>
-
-  <div style="
-    display: flex; gap: 7px;
-    animation: clinicos-fade-in 0.5s ease 0.3s both;
-  ">
-    <div style="width:5px;height:5px;background:#3b82f6;border-radius:50%;animation:clinicos-dot 1.3s ease 0s infinite;"></div>
-    <div style="width:5px;height:5px;background:#3b82f6;border-radius:50%;animation:clinicos-dot 1.3s ease 0.2s infinite;"></div>
-    <div style="width:5px;height:5px;background:#3b82f6;border-radius:50%;animation:clinicos-dot 1.3s ease 0.4s infinite;"></div>
-  </div>
-`
-document.body.appendChild(loaderEl)
-
-// Remove o loader com fade quando o React terminar de montar
-function removeLoader() {
-  const loader = document.getElementById('clinicos-loader')
-  if (!loader) return
-  loader.style.transition = 'opacity 0.4s ease'
-  loader.style.opacity = '0'
-  setTimeout(() => loader.remove(), 400)
+    <div class="co-name">Clinic<span class="co-la">OS</span></div>
+    <div class="co-msg">Iniciando...</div>
+    <div class="co-bt"><div class="co-bf"></div></div>
+    <div class="co-ds">
+      <div class="co-d" style="animation-delay:0s"></div>
+      <div class="co-d" style="animation-delay:.16s"></div>
+      <div class="co-d" style="animation-delay:.32s"></div>
+    </div>
+  `
+  document.body.appendChild(el)
+  return el
 }
 
+function removeSplash(el) {
+  if (!el) return
+  el.classList.add("out")
+  setTimeout(() => el?.remove(), 420)
+}
+
+const splash = mountSplash()
+
+// ─── React ────────────────────────────────────────────────────────────────────
+
 ReactDOM.createRoot(document.getElementById('root')).render(
-  
-    <ThemeProvider>
-      <AuthProvider>
-        <App />
-      </AuthProvider>
-    </ThemeProvider>
-  
+  <AuthProvider>
+    <App />
+  </AuthProvider>
 )
 
-// Remove o loader assim que o primeiro frame renderizar
-requestAnimationFrame(() => requestAnimationFrame(removeLoader))
+// Remove splash depois do React pintar o primeiro frame
+requestAnimationFrame(() => requestAnimationFrame(() => removeSplash(splash)))
