@@ -284,6 +284,10 @@ export default function Appointments() {
   const [toast,          setToast]          = useState(null)
   const [selectedDay,    setSelectedDay]    = useState(null)
   const [changingStatus, setChangingStatus] = useState(null)
+  const [query,          setQuery]          = useState("")
+  const [searching,      setSearching]      = useState(false)
+  const [remoteAppts,    setRemoteAppts]    = useState(null)
+  const searchTimerAppt                     = useRef(null)
 
   // styles locais usados apenas neste componente
   const s = {
@@ -362,7 +366,48 @@ export default function Appointments() {
 
   useEffect(() => { fetchAll() }, [])
 
-  const filtered = filterStatus === "all" ? appointments : appointments.filter(a=>a.status===filterStatus)
+  // Busca local: nome do paciente, data, status, profissional
+  function localSearchAppts(list, q) {
+    if (!q.trim()) return list
+    const lower = q.toLowerCase()
+    return list.filter(a => {
+      const patName  = patientMap[a.client_id]?.name?.toLowerCase() ?? ""
+      const staffName = staffMap[a.staff_id]?.name?.toLowerCase() ?? ""
+      const dateStr  = new Date(a.datetime).toLocaleDateString("pt-BR")
+      const statusLabel = STATUS_CONFIG[a.status]?.label?.toLowerCase() ?? ""
+      return patName.includes(lower) || dateStr.includes(lower) || statusLabel.includes(lower) || staffName.includes(lower)
+    })
+  }
+
+  async function searchRemoteAppts(q) {
+    setSearching(true)
+    // Busca no banco por IDs de pacientes que batem com o nome
+    const { data: pts } = await supabase.from("patients").select("id").ilike("name", `%${q}%`)
+    const ids = pts?.map(p => p.id) ?? []
+    let query = supabase.from("appointments").select("*").is("deleted_at", null)
+    if (ids.length > 0) query = query.in("client_id", ids)
+    else query = query.eq("id", "00000000-0000-0000-0000-000000000000") // retorna vazio se sem match
+    const { data } = await query.order("datetime", { ascending: true })
+    setRemoteAppts(data ?? [])
+    setSearching(false)
+  }
+
+  function handleQueryChange(q) {
+    setQuery(q)
+    setRemoteAppts(null)
+    clearTimeout(searchTimerAppt.current)
+    if (!q.trim()) return
+    const byStatus = STATUS_CONFIG[q.toLowerCase()] ? appointments : []
+    const local = localSearchAppts(filterStatus === "all" ? appointments : appointments.filter(a=>a.status===filterStatus), q)
+    if (local.length === 0   const filtered = filterStatus === "all" ? appointments : appointments.filter(a=>a.status===filterStatus)  const filtered = filterStatus === "all" ? appointments : appointments.filter(a=>a.status===filterStatus) byStatus.length === 0) {
+      searchTimerAppt.current = setTimeout(() => searchRemoteAppts(q), 400)
+    }
+  }
+
+  const byStatus  = filterStatus === "all" ? appointments : appointments.filter(a=>a.status===filterStatus)
+  const filtered  = query.trim()
+    ? (remoteAppts !== null ? remoteAppts : localSearchAppts(byStatus, query))
+    : byStatus
 
   return (
     <AppLayout>
@@ -409,7 +454,7 @@ export default function Appointments() {
 
         {view === "list" ? (
           <>
-            <div style={{ display:"flex", gap:8, marginBottom:16, overflowX:"auto", flexWrap:isMobile?"nowrap":"wrap", paddingBottom:isMobile?4:0 }}>
+            <div style={{ display:"flex", gap:8, marginBottom:12, overflowX:"auto", flexWrap:isMobile?"nowrap":"wrap", paddingBottom:isMobile?4:0 }}>
               <button style={filterStatus==="all"?{...s.filterBtn,...s.filterBtnActive,flexShrink:0}:{...s.filterBtn,flexShrink:0}} onClick={()=>setFilterStatus("all")}>
                 Todos <span style={s.filterCount}>{appointments.length}</span>
               </button>
@@ -423,6 +468,24 @@ export default function Appointments() {
                   </button>
                 )
               })}
+            </div>
+
+            {/* Campo de busca */}
+            <div style={{ position:"relative", marginBottom:16 }}>
+              <span style={{ position:"absolute", left:12, top:"50%", transform:"translateY(-50%)", fontSize:14, color:"#475569", pointerEvents:"none" }}>🔍</span>
+              <input
+                type="text"
+                placeholder="Buscar por paciente, data (15/03), status (cancelado) ou profissional..."
+                value={query}
+                onChange={e=>handleQueryChange(e.target.value)}
+                style={{ background:t.bgCard, border:`1px solid ${t.border}`, borderRadius:8, padding:"10px 12px 10px 36px", fontSize:14, color:t.textPrimary, outline:"none", width:"100%", boxSizing:"border-box" }}
+                onFocus={e=>e.target.style.borderColor=t.accent}
+                onBlur={e=>e.target.style.borderColor=t.border}
+              />
+              {searching && <span style={{ position:"absolute",right:12,top:"50%",transform:"translateY(-50%)",fontSize:11,color:"#475569" }}>buscando...</span>}
+              {query && !searching && (
+                <button onClick={()=>{setQuery("");setRemoteAppts(null)}} style={{ position:"absolute",right:8,top:"50%",transform:"translateY(-50%)",background:"transparent",border:"none",color:"#475569",cursor:"pointer",fontSize:16 }}>✕</button>
+              )}
             </div>
 
             <div style={s.listCard}>
