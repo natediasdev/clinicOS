@@ -23,7 +23,6 @@ const responsiveCSS = `
     .lp-section-sub { font-size: 15px !important; margin-bottom: 36px !important; }
 
     .lp-plans-grid { grid-template-columns: 1fr !important; max-width: 400px !important; margin: 0 auto !important; }
-    .lp-plan-highlighted { transform: none !important; }
 
     .lp-cta { padding: 60px 24px !important; }
     .lp-cta-title { font-size: 28px !important; }
@@ -78,14 +77,23 @@ const FEATURES = [
   },
 ]
 
+const BILLING_CYCLES = [
+  { id: "monthly",    label: "Mensal",     discount: 0  },
+  { id: "quarterly",  label: "Trimestral", discount: 10 },
+  { id: "semiannual", label: "Semestral",  discount: 15 },
+]
+
+function getPrice(base, discountPct) {
+  return Math.round(base * (1 - discountPct / 100))
+}
+
 const PLANS = [
   {
     name: "Free",
-    monthlyPrice: 0,
-    yearlyPrice: 0,
+    basePrice: 0,
     period: "/mês",
-    desc: "Para quem quer experimentar.",
-    features: ["Até 50 pacientes", "1 usuário", "Agendamentos ilimitados", "Dashboard básico"],
+    desc: "Para experimentar o sistema.",
+    features: ["Até 20 pacientes", "1 usuário (admin)", "Agendamentos ilimitados", "Dashboard básico"],
     cta: "Começar grátis",
     ctaUrl: "/register",
     highlight: false,
@@ -93,11 +101,10 @@ const PLANS = [
   },
   {
     name: "Pro",
-    monthlyPrice: 79,
-    yearlyPrice: 63,
+    basePrice: 79,
     period: "/mês",
     desc: "Para profissionais autônomos.",
-    features: ["Pacientes ilimitados", "Até 3 usuários", "Prontuário completo", "Anexos e documentos", "Dashboard completo"],
+    features: ["Pacientes ilimitados", "Até 3 usuários", "Prontuário completo", "Financeiro completo", "Dashboard avançado"],
     cta: "Assinar Pro",
     ctaUrl: "/register",
     highlight: true,
@@ -105,11 +112,10 @@ const PLANS = [
   },
   {
     name: "Clínica",
-    monthlyPrice: 199,
-    yearlyPrice: 159,
+    basePrice: 199,
     period: "/mês",
     desc: "Para clínicas com equipe.",
-    features: ["Tudo do Pro", "Usuários ilimitados", "Suporte prioritário", "Onboarding dedicado", "API de integração"],
+    features: ["Tudo do Pro", "Usuários ilimitados", "Suporte prioritário", "Onboarding dedicado"],
     cta: "Assinar Clínica",
     ctaUrl: "/register",
     highlight: false,
@@ -248,66 +254,76 @@ function Features() {
 }
 
 function Pricing() {
-  const [yearly, setYearly] = useState(false)
+  const [cycle, setCycle] = useState("monthly")
+  const activeCycle = BILLING_CYCLES.find(c => c.id === cycle)
 
   return (
     <section id="pricing" style={{ ...s.section, background: "#080f1a" }} className="lp-section">
       <div style={s.sectionLabel}>Planos</div>
       <h2 style={s.sectionTitle} className="lp-section-title">Simples e transparente.</h2>
-      <p style={s.sectionSub} className="lp-section-sub">Comece grátis e evolua conforme sua clínica cresce. Cancele quando quiser.</p>
+      <p style={s.sectionSub} className="lp-section-sub">Comece grátis. Assine quando quiser. Cancele quando precisar.</p>
 
-      {/* Toggle mensal/anual */}
-      <div style={{ display:"flex", alignItems:"center", gap:12, marginBottom:48 }}>
-        <span style={{ fontSize:14, fontWeight:600, color: yearly ? "#475569" : "#94a3b8" }}>Mensal</span>
-        <button onClick={() => setYearly(y => !y)} style={{ width:48, height:26, background:"#1e293b", border:"1px solid #334155", borderRadius:99, cursor:"pointer", position:"relative" }}>
-          <div style={{ position:"absolute", top:2, width:20, height:20, background:"#3b82f6", borderRadius:"50%", transition:"transform 0.2s", transform: yearly ? "translateX(24px)" : "translateX(2px)" }} />
-        </button>
-        <span style={{ fontSize:14, fontWeight:600, color: yearly ? "#94a3b8" : "#475569" }}>
-          Anual{" "}
-          <span style={{ background:"#052e16", color:"#22c55e", border:"1px solid #166534", borderRadius:99, padding:"2px 8px", fontSize:11, fontWeight:700 }}>-20%</span>
-        </span>
+      {/* Seletor de ciclo */}
+      <div style={{ display:"flex", gap:8, marginBottom:48, justifyContent:"center", flexWrap:"wrap" }}>
+        {BILLING_CYCLES.map(c => (
+          <button key={c.id} onClick={() => setCycle(c.id)} style={{
+            background: cycle===c.id ? "#3b82f6" : "transparent",
+            border: `1px solid ${cycle===c.id ? "#3b82f6" : "#1e293b"}`,
+            color: cycle===c.id ? "#fff" : "#64748b",
+            borderRadius: 8, padding: "8px 20px", fontSize: 14, fontWeight: 600, cursor: "pointer",
+          }}>
+            {c.label}
+            {c.discount > 0 && (
+              <span style={{ marginLeft:8, background:"#052e16", color:"#22c55e", border:"1px solid #166534", borderRadius:99, padding:"2px 8px", fontSize:11, fontWeight:700 }}>
+                -{c.discount}%
+              </span>
+            )}
+          </button>
+        ))}
       </div>
 
-      <div style={{ ...s.plansGrid, gridTemplateColumns:"repeat(auto-fit, minmax(260px, 1fr))", maxWidth:1000 }} className="lp-plans-grid">
-        {PLANS.map((p) => (
-          <div key={p.name} className={p.highlight ? "lp-plan-highlighted" : ""} style={{
-            ...s.planCard,
-            ...(p.highlight ? s.planCardHighlight : {}),
-            borderColor: p.highlight ? p.color : "#1e293b",
-            borderWidth: p.highlight ? 2 : 1,
-            transform: p.highlight ? "scale(1.04)" : "scale(1)",
-            boxShadow: p.highlight ? `0 0 40px ${p.color}22` : "none",
-          }}>
-            {p.highlight && <div style={{ ...s.planBadge, background: p.color }}>Mais popular</div>}
-            <div style={{ borderTop:`3px solid ${p.color}`, margin:"-32px -28px 24px", borderRadius:"14px 14px 0 0", padding:"16px 28px 0" }} />
-            <h3 style={{ ...s.planName, color: p.color }}>{p.name}</h3>
-            <div style={s.planPrice}>
-              {p.monthlyPrice === 0 ? (
-                <span style={{ fontSize:40, fontWeight:800, color:"#f8fafc" }}>Grátis</span>
-              ) : (
-                <>
-                  <span style={{ fontSize:16, fontWeight:700, color:"#94a3b8", verticalAlign:"top", marginTop:8, display:"inline-block" }}>R$</span>
-                  <span style={{ fontSize:48, fontWeight:800, color:"#f8fafc", letterSpacing:"-2px" }}>{yearly ? p.yearlyPrice : p.monthlyPrice}</span>
-                  <span style={s.planPeriod}>/mês</span>
-                </>
+      <div style={{ ...s.plansGrid, gridTemplateColumns:"repeat(auto-fit, minmax(260px, 1fr))", maxWidth:1000, margin:"0 auto" }} className="lp-plans-grid">
+        {PLANS.map((p) => {
+          const price = p.basePrice === 0 ? 0 : getPrice(p.basePrice, activeCycle.discount)
+          return (
+            <div key={p.name} className={p.highlight ? "lp-plan-highlighted" : ""} style={{
+              ...s.planCard,
+              ...(p.highlight ? s.planCardHighlight : {}),
+              borderColor: p.highlight ? p.color : "#1e293b",
+              borderWidth: p.highlight ? 2 : 1,
+              transform: p.highlight ? "scale(1.04)" : "scale(1)",
+              boxShadow: p.highlight ? `0 0 40px ${p.color}22` : "none",
+              borderTop: `3px solid ${p.color}`,
+            }}>
+              {p.highlight && <div style={{ ...s.planBadge, background: p.color }}>Mais popular</div>}
+              <h3 style={{ ...s.planName, color: p.color }}>{p.name}</h3>
+              <div style={s.planPrice}>
+                {price === 0
+                  ? <span style={{ fontSize:40, fontWeight:800, color:"#f8fafc" }}>Grátis</span>
+                  : <>
+                      <span style={{ fontSize:16, fontWeight:700, color:"#94a3b8", verticalAlign:"top", marginTop:8, display:"inline-block" }}>R$</span>
+                      <span style={{ fontSize:48, fontWeight:800, color:"#f8fafc", letterSpacing:"-2px" }}>{price}</span>
+                      <span style={s.planPeriod}>/mês</span>
+                    </>
+                }
+              </div>
+              {activeCycle.discount > 0 && price > 0 && (
+                <p style={{ fontSize:12, color:"#475569", margin:"-8px 0 8px" }}>
+                  cobrado R${price * (cycle === "quarterly" ? 3 : 6)}/{cycle === "quarterly" ? "trimestre" : "semestre"}
+                </p>
               )}
+              <p style={s.planDesc}>{p.desc}</p>
+              <ul style={s.planFeatures}>
+                {p.features.map((f) => (
+                  <li key={f} style={s.planFeatureItem}><span style={s.checkIcon}>✓</span> {f}</li>
+                ))}
+              </ul>
+              <Link to={p.ctaUrl} style={{ textDecoration:"none" }}>
+                <button style={p.highlight ? { ...s.btnPlanHighlight, background: p.color } : s.btnPlan}>{p.cta}</button>
+              </Link>
             </div>
-            {yearly && p.monthlyPrice > 0 && (
-              <p style={{ fontSize:12, color:"#475569", margin:"-8px 0 8px" }}>cobrado R${p.yearlyPrice * 12}/ano</p>
-            )}
-            <p style={s.planDesc}>{p.desc}</p>
-            <ul style={s.planFeatures}>
-              {p.features.map((f) => (
-                <li key={f} style={s.planFeatureItem}>
-                  <span style={s.checkIcon}>✓</span> {f}
-                </li>
-              ))}
-            </ul>
-            <Link to={p.ctaUrl} style={{ textDecoration:"none" }}>
-              <button style={p.highlight ? { ...s.btnPlanHighlight, background: p.color } : s.btnPlan}>{p.cta}</button>
-            </Link>
-          </div>
-        ))}
+          )
+        })}
       </div>
       <p style={{ textAlign:"center", fontSize:13, color:"#334155", marginTop:32 }}>
         Sem fidelidade · Cancele quando quiser · Sem cartão para o plano Free

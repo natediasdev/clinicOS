@@ -350,8 +350,9 @@ export default function Appointments() {
   }
 
   async function handleDelete(id) {
-    const { error } = await supabase.from("appointments").update({ deleted_at:new Date().toISOString() }).eq("id",id)
+    const { error } = await supabase.rpc("soft_delete_appointment", { appointment_id: id })
     if (!error) { fetchAll(); showToast("Agendamento removido.", "error") }
+    else showToast(error.message, "error")
   }
 
   function handleSaved(patientName) {
