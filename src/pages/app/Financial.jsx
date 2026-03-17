@@ -3,6 +3,7 @@ import { supabase } from "../../supabaseClient"
 import { useAuth } from "../../context/AuthContext"
 import { useTheme } from "../../context/ThemeContext"
 import AppLayout from "../AppLayout"
+import RevenueChart from "../../components/financial/RevenueChart"
 
 // ─── Constantes ───────────────────────────────────────────────────────────────
 
@@ -349,6 +350,9 @@ export default function Financial() {
   const totalAll  = payments.reduce((s,p)=>s+(parseFloat(p.final_amount)||0),0)
   const countPaid = payments.filter(p=>p.status==="paid").length
 
+  // Dados derivados de payments para o gráfico de faturamento
+  const revenueData = aggregateRevenueByWeek(payments);
+
   return (
     <AppLayout>
       <Toast toast={toast} />
@@ -385,6 +389,15 @@ export default function Financial() {
           <MetricCard label="A receber"        value={formatCurrency(totalPend)} sub="pendentes"                 accent="#f59e0b" t={t} isMobile={isMobile} />
           <MetricCard label="Total do período" value={formatCurrency(totalAll)}  sub="incl. pendentes"           accent="#3b82f6" t={t} isMobile={isMobile} />
           <MetricCard label="Lançamentos"      value={payments.length}           sub="no período"                accent="#8b5cf6" t={t} isMobile={isMobile} />
+        </div>
+
+        {/* Gráfico de faturamento */}
+        <div style={{ marginBottom: 16 }}>
+          <RevenueChart 
+            data={revenueData} 
+            loading={fetching}
+            theme={t}
+          />
         </div>
 
         {/* Lista */}
