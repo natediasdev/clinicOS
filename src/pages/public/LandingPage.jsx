@@ -1,4 +1,5 @@
 import { Link } from "react-router-dom"
+import ParticleBackground from "../../components/ParticleBackground"
 import { useState, useEffect, useRef, useCallback } from "react"
 
 // ─── GSAP via CDN (sem instalar pacote) ──────────────────────────────────────
@@ -500,6 +501,7 @@ function Hero() {
     <section className="lp-hero">
       <div className="lp-hero-bg">
         <div className="lp-hero-grid" />
+        <ParticleBackground color="#3b82f6" count={50} speed={0.3} opacity={0.12} zIndex={0} />
         <div className="lp-hero-glow" />
         <div className="lp-hero-glow-2" />
       </div>
