@@ -224,8 +224,8 @@ const aggregateRevenueByWeek = (payments) => {
   - Texto do tooltip: `#64748b` (label), `#3b82f6` (valor)
 
 ### Formatação
-- **Moeda**: `pt-BR`, `BRL`, sem casas decimais
-- **Data**: `DD/MM - DD/MM` (ex: "01/01 - 07/01")
+- **Moeda**: `pt-BR`, `BRL`, 0 casas decimais (consistente com Dashboard.jsx)
+- **Data**: `DD/MM - DD/MM` (ex: "01/01 - 07/01") - intervalo semanal
 
 ### Responsividade
 - Usar `ResponsiveContainer` do Recharts (como no Dashboard)
@@ -235,7 +235,7 @@ const aggregateRevenueByWeek = (payments) => {
 
 ### Testes Manuais
 1. Selecionar período "Este mês" → Verificar gráfico com dados semanais
-2. Selecionar período "Tudo" → Verificar gráfico com todas as semanas
+2. Selecionar período "Tudo" → Verificar gráfico com todas as semanas (ações de longo prazo)
 3. Verificar tooltip ao passar mouse sobre a área
 4. Verificar formato de data e valor em português brasileiro
 
@@ -243,6 +243,7 @@ const aggregateRevenueByWeek = (payments) => {
 - Período sem pagamentos → Mostrar mensagem "Nenhum dado de faturamento no período"
 - Carregando dados → Mostrar skeleton loader
 - Dados insuficientes para uma semana → Agregar corretamente
+- "Tudo" (All) period → Inclui todos os pagamentos pagos desde o início dos registros
 
 ## Prioridade
 - **Alta**: Implementar gráfico básico com dados semanais
@@ -252,3 +253,9 @@ const aggregateRevenueByWeek = (payments) => {
 ## Dependências
 - Recharts (já instalado no projeto)
 - Nenhum novo pacote necessário
+
+## Observações da Revisão
+1. **Formatação de data**: O spéc usa intervalo semanal (`DD/MM - DD/MM`), enquanto o Dashboard usa data única. Ambos são aceitáveis, mas o intervalo semanal é mais claro para o Financeiro.
+2. **Decimais de moeda**: Alinhado com Dashboard.jsx (0 decimais) para consistência.
+3. **Diretório do componente**: Criar `src/components/financial/` se não existir.
+4. **Período "Tudo"**: Manipulado implicitamente pelo filtro de período existente.
