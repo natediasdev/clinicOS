@@ -2,6 +2,7 @@ import React from 'react'
 import ReactDOM from 'react-dom/client'
 import App from './App'
 import { AuthProvider } from './context/AuthContext'
+import { ThemeProvider } from './context/ThemeContext'
 
 // ─── Loading screen DOM ───────────────────────────────────────────────────────
 // Injetada diretamente no DOM antes do React montar.
@@ -71,9 +72,11 @@ const splash = mountSplash()
 // ─── React ────────────────────────────────────────────────────────────────────
 
 ReactDOM.createRoot(document.getElementById('root')).render(
-  <AuthProvider>
-    <App />
-  </AuthProvider>
+  <ThemeProvider>
+    <AuthProvider>
+      <App />
+    </AuthProvider>
+  </ThemeProvider>
 )
 
 // Remove splash depois do React pintar o primeiro frame

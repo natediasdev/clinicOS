@@ -184,8 +184,7 @@ function CustomTooltip({ active, payload, label, currency }) {
 
 // ─── Componentes de seção ─────────────────────────────────────────────────────
 
-function SectionCard({ title, children, span }) {
-  const { t } = useTheme()
+function SectionCard({ title, children, span, t }) {
   return (
     <div style={{ background:t.bgCard, borderRadius:12, padding:24, gridColumn:span?`span ${span}`:undefined }}>
       <p style={{ fontSize:12, fontWeight:700, color:t.textGhost, textTransform:"uppercase", letterSpacing:"0.1em", margin:"0 0 20px" }}>{title}</p>
@@ -194,8 +193,7 @@ function SectionCard({ title, children, span }) {
   )
 }
 
-function MetricCard({ label, value, sub, accent }) {
-  const { t } = useTheme()
+function MetricCard({ label, value, sub, accent, t }) {
   return (
     <div style={{ background:t.bgCard, borderRadius:12, padding:"20px 18px", display:"flex", flexDirection:"column", gap:4, borderTop:`3px solid ${accent}`, minWidth:0 }}>
       <span style={{ fontSize:32, fontWeight:800, lineHeight:1, letterSpacing:"-1px", color:accent, wordBreak:"break-word" }}>{value}</span>
@@ -205,13 +203,11 @@ function MetricCard({ label, value, sub, accent }) {
   )
 }
 
-function Skeleton({ h=80 }) {
-  const { t } = useTheme()
+function Skeleton({ h=80, t }) {
   return <div style={{ background:t.bgCard, borderRadius:12, padding:24 }}><div className="skeleton-shimmer" style={{ height:h }}/></div>
 }
 
-function NextAppointmentsList({ items }) {
-  const { t } = useTheme()
+function NextAppointmentsList({ items, t }) {
   return (
     <div style={{ display:"flex", flexDirection:"column", gap:0 }}>
       {items.length === 0 ? (
@@ -268,12 +264,12 @@ export default function Dashboard() {
 
         {/* ── Métricas ── */}
         <div style={{ display:"grid", gridTemplateColumns: isMobile?"1fr 1fr":"repeat(5,1fr)", gap:12, marginBottom:20 }}>
-          {d.loading ? [1,2,3,4,5].map(i=><Skeleton key={i} h={88}/>) : <>
-            <MetricCard label="Pacientes ativos"   value={d.totalPatients}           sub="total cadastrado"       accent="#3b82f6"/>
-            <MetricCard label="Agendamentos hoje"  value={d.todayAppointments}        sub="excluindo cancelados"   accent="#8b5cf6"/>
-            <MetricCard label="Próximos na fila"   value={d.nextAppointments.length}  sub="aguardando"             accent="#f59e0b"/>
-            <MetricCard label="Ocupação semanal"   value={`${d.weekOccupancy??0}%`}   sub="desta semana"           accent="#22c55e"/>
-            <MetricCard label="Faltas esta semana" value={d.weekNoShow??0}            sub="não compareceram"       accent="#ef4444"/>
+          {d.loading ? [1,2,3,4,5].map(i=><Skeleton key={i} h={88} t={t}/>) : <>
+            <MetricCard t={t} label="Pacientes ativos"   value={d.totalPatients}           sub="total cadastrado"       accent="#3b82f6"/>
+            <MetricCard t={t} label="Agendamentos hoje"  value={d.todayAppointments}        sub="excluindo cancelados"   accent="#8b5cf6"/>
+            <MetricCard t={t} label="Próximos na fila"   value={d.nextAppointments.length}  sub="aguardando"             accent="#f59e0b"/>
+            <MetricCard t={t} label="Ocupação semanal"   value={`${d.weekOccupancy??0}%`}   sub="desta semana"           accent="#22c55e"/>
+            <MetricCard t={t} label="Faltas esta semana" value={d.weekNoShow??0}            sub="não compareceram"       accent="#ef4444"/>
           </>}
         </div>
 
@@ -281,8 +277,8 @@ export default function Dashboard() {
         <div style={{ display:"grid", gridTemplateColumns: isMobile?"1fr":"2fr 1fr", gap:16, marginBottom:16 }}>
 
           {/* Faturamento por semana */}
-          {d.loading ? <Skeleton h={240}/> : (
-            <SectionCard title="Faturamento por semana (R$)">
+          {d.loading ? <Skeleton h={240} t={t}/> : (
+            <SectionCard t={t} title="Faturamento por semana (R$)">
               {d.revenueByWeek.length === 0 ? (
                 <p style={{ color:t.textGhost, fontSize:13, textAlign:"center", padding:"40px 0" }}>Nenhum pagamento registrado</p>
               ) : (
@@ -304,8 +300,8 @@ export default function Dashboard() {
           )}
 
           {/* Pizza por status */}
-          {d.loading ? <Skeleton h={240}/> : (
-            <SectionCard title="Agendamentos por status (mês)">
+          {d.loading ? <Skeleton h={240} t={t}/> : (
+            <SectionCard t={t} title="Agendamentos por status (mês)">
               {d.statusPie.length === 0 ? (
                 <p style={{ color:t.textGhost, fontSize:13, textAlign:"center", padding:"40px 0" }}>Sem dados este mês</p>
               ) : (
@@ -327,8 +323,8 @@ export default function Dashboard() {
         <div style={{ display:"grid", gridTemplateColumns: isMobile?"1fr":"1fr 1fr", gap:16, marginBottom:16 }}>
 
           {/* Ocupação por dia da semana */}
-          {d.loading ? <Skeleton h={220}/> : (
-            <SectionCard title="Atendimentos por dia da semana">
+          {d.loading ? <Skeleton h={220} t={t}/> : (
+            <SectionCard t={t} title="Atendimentos por dia da semana">
               <ResponsiveContainer width="100%" height={200}>
                 <BarChart data={d.occupancyByDay} margin={{ top:4, right:4, left:-16, bottom:0 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" vertical={false}/>
@@ -344,8 +340,8 @@ export default function Dashboard() {
           )}
 
           {/* Crescimento de pacientes */}
-          {d.loading ? <Skeleton h={220}/> : (
-            <SectionCard title="Crescimento de pacientes">
+          {d.loading ? <Skeleton h={220} t={t}/> : (
+            <SectionCard t={t} title="Crescimento de pacientes">
               {d.patientGrowth.length < 2 ? (
                 <p style={{ color:t.textGhost, fontSize:13, textAlign:"center", padding:"40px 0" }}>Dados insuficientes</p>
               ) : (
@@ -372,12 +368,12 @@ export default function Dashboard() {
         {/* ── Próximos atendimentos ── */}
         <div style={{ display:"grid", gridTemplateColumns: isMobile?"1fr":"2fr 1fr", gap:16 }}>
           {d.loading
-            ? <Skeleton h={180}/>
-            : <SectionCard title="Próximos atendimentos"><NextAppointmentsList items={d.nextAppointments}/></SectionCard>}
+            ? <Skeleton h={180} t={t}/>
+            : <SectionCard t={t} title="Próximos atendimentos"><NextAppointmentsList t={t} items={d.nextAppointments}/></SectionCard>}
 
           {/* Barra de ocupação semanal */}
           {!d.loading && (
-            <SectionCard title="Ocupação semanal">
+            <SectionCard t={t} title="Ocupação semanal">
               <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:16 }}>
                 <span style={{ fontSize:13, color:t.textGhost }}>Esta semana</span>
                 <span style={{ fontSize:32, fontWeight:800, color:t.textPrimary }}>{d.weekOccupancy??0}%</span>
