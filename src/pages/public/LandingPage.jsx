@@ -86,13 +86,13 @@ const LP_CSS = `
   .lp-hero-bg { position: absolute; inset: 0; pointer-events: none; }
   .lp-hero-glow { position: absolute; width: 700px; height: 700px; border-radius: 50%; background: radial-gradient(circle, rgba(59,130,246,0.1) 0%, transparent 70%); top: 50%; left: 50%; transform: translate(-50%,-50%); }
   .lp-hero-grid { position: absolute; inset: 0; background-image: linear-gradient(rgba(30,41,59,.12) 1px, transparent 1px), linear-gradient(90deg, rgba(30,41,59,.12) 1px, transparent 1px); background-size: 60px 60px; mask-image: radial-gradient(ellipse 80% 80% at 50% 50%, black 20%, transparent 100%); }
-  .lp-hero-badge { display: inline-flex; align-items: center; gap: 8px; background: rgba(59,130,246,.08); border: 1px solid rgba(59,130,246,.18); color: #93c5fd; padding: 6px 16px; border-radius: 99px; font-size: 12px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; margin-bottom: 28px; opacity: 0; }
-  .lp-hero-title { font-size: clamp(38px, 5.5vw, 68px); font-weight: 800; color: #f8fafc; line-height: 1.08; letter-spacing: -1.5px; margin-bottom: 22px; opacity: 0; }
+  .lp-hero-badge { display: inline-flex; align-items: center; gap: 8px; background: rgba(59,130,246,.08); border: 1px solid rgba(59,130,246,.18); color: #93c5fd; padding: 6px 16px; border-radius: 99px; font-size: 12px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; margin-bottom: 28px; }
+  .lp-hero-title { font-size: clamp(38px, 5.5vw, 68px); font-weight: 800; color: #f8fafc; line-height: 1.08; letter-spacing: -1.5px; margin-bottom: 22px; }
   .lp-hero-title-accent { color: #3b82f6; }
-  .lp-hero-sub { font-size: clamp(15px, 1.6vw, 17px); color: #64748b; line-height: 1.7; max-width: 520px; margin: 0 auto 36px; opacity: 0; }
-  .lp-hero-ctas { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; margin-bottom: 18px; opacity: 0; }
-  .lp-hero-note { font-size: 13px; color: #334155; opacity: 0; }
-  .lp-hero-preview { margin-top: 56px; max-width: 860px; width: 100%; border-radius: 14px; overflow: hidden; border: 1px solid rgba(30,41,59,0.8); box-shadow: 0 24px 64px rgba(0,0,0,.5); opacity: 0; transform: translateY(40px); position: relative; z-index: 1; }
+  .lp-hero-sub { font-size: clamp(15px, 1.6vw, 17px); color: #64748b; line-height: 1.7; max-width: 520px; margin: 0 auto 36px; }
+  .lp-hero-ctas { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; margin-bottom: 18px; }
+  .lp-hero-note { font-size: 13px; color: #334155; }
+  .lp-hero-preview { margin-top: 56px; max-width: 860px; width: 100%; border-radius: 14px; overflow: hidden; border: 1px solid rgba(30,41,59,0.8); box-shadow: 0 24px 64px rgba(0,0,0,.5); transform: translateY(0); position: relative; z-index: 1; }
   .lp-preview-bar { background: #0f172a; padding: 10px 14px; display: flex; align-items: center; gap: 5px; border-bottom: 1px solid #1e293b; }
   .lp-dot { width: 9px; height: 9px; border-radius: 50%; }
   .lp-preview-title { font-size: 11px; color: #334155; margin-left: 7px; }
@@ -115,8 +115,8 @@ const LP_CSS = `
   .lp-section-sub { font-size: 15px; color: #64748b; line-height: 1.7; max-width: 520px; margin: 0 0 44px; }
 
   /* ── Reveal ── */
-  .gs-reveal { opacity: 0; transform: translateY(28px); }
-  .gs-reveal-left { opacity: 0; transform: translateX(-36px); }
+  .gs-reveal { transform: translateY(0); }
+  .gs-reveal-left { transform: translateX(0); }
 
   /* ── Features ── */
   .lp-features-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; }
@@ -264,17 +264,16 @@ const PLANS = [
   },
 ]
 
-// ─── CSS inject ───────────────────────────────────────────────────────────────
-function InjectCSS() {
-  useEffect(() => {
-    if (document.getElementById("lp-css-v2")) return
-    const el = document.createElement("style")
-    el.id = "lp-css-v2"
-    el.textContent = LP_CSS
-    document.head.appendChild(el)
-  }, [])
-  return null
-}
+// ─── CSS inject — SÍNCRONO ────────────────────────────────────────────────────
+// Executado no module load, antes do primeiro render do React.
+// Elimina o flash de tela sem estilo após a loading screen.
+;(function() {
+  if (document.getElementById("lp-css-v2")) return
+  const el = document.createElement("style")
+  el.id = "lp-css-v2"
+  el.textContent = LP_CSS
+  document.head.appendChild(el)
+})()
 
 // ─── Nav ──────────────────────────────────────────────────────────────────────
 function Nav() {
@@ -309,6 +308,10 @@ function Hero() {
   const noteRef  = useRef(null); const prevRef  = useRef(null)
 
   useGSAP((gsap) => {
+    // Estado inicial definido pelo GSAP — se o GSAP falhar, elementos ficam visíveis
+    gsap.set([badgeRef.current, titleRef.current, subRef.current,
+               ctasRef.current, noteRef.current], { opacity:0, y:20 })
+    gsap.set(prevRef.current, { opacity:0, y:40 })
     const tl = gsap.timeline({ defaults: { ease:"power3.out" } })
     tl.to(badgeRef.current, { opacity:1, y:0, duration:.7 }, .2)
       .to(titleRef.current, { opacity:1, y:0, duration:.9 }, .35)
@@ -376,8 +379,9 @@ function AnimatedCounter({ target, suffix="" }) {
 function Stats() {
   const ref = useRef(null)
   useGSAP((gsap, ScrollTrigger) => {
-    gsap.from(ref.current.querySelectorAll(".lp-stat-item"), {
-      opacity:0, y:20, stagger:.12, duration:.7, ease:"power2.out",
+    gsap.set(ref.current.querySelectorAll(".lp-stat-item"), { opacity:0, y:20 })
+    gsap.to(ref.current.querySelectorAll(".lp-stat-item"), {
+      opacity:1, y:0, stagger:.12, duration:.7, ease:"power2.out",
       scrollTrigger:{ trigger:ref.current, start:"top 85%", once:true }
     })
   })
@@ -397,8 +401,10 @@ function Stats() {
 function Features() {
   const titleRef = useRef(null); const gridRef = useRef(null)
   useGSAP((gsap, ScrollTrigger) => {
-    gsap.from(titleRef.current.querySelectorAll(".gs-reveal"), { opacity:0, y:24, stagger:.1, duration:.7, ease:"power2.out", scrollTrigger:{ trigger:titleRef.current, start:"top 82%", once:true }})
-    gsap.from(gridRef.current.querySelectorAll(".lp-feature-card"), { opacity:0, y:36, scale:.95, stagger:.07, duration:.7, ease:"power2.out", scrollTrigger:{ trigger:gridRef.current, start:"top 82%", once:true }})
+    gsap.set(titleRef.current.querySelectorAll(".gs-reveal"), { opacity:0, y:24 })
+    gsap.set(gridRef.current.querySelectorAll(".lp-feature-card"), { opacity:0, y:36, scale:.95 })
+    gsap.to(titleRef.current.querySelectorAll(".gs-reveal"), { opacity:1, y:0, stagger:.1, duration:.7, ease:"power2.out", scrollTrigger:{ trigger:titleRef.current, start:"top 82%", once:true }})
+    gsap.to(gridRef.current.querySelectorAll(".lp-feature-card"), { opacity:1, y:0, scale:1, stagger:.07, duration:.7, ease:"power2.out", scrollTrigger:{ trigger:gridRef.current, start:"top 82%", once:true }})
   })
   return (
     <section id="features" className="lp-section">
@@ -424,7 +430,8 @@ function Features() {
 function Testimonials() {
   const ref = useRef(null)
   useGSAP((gsap, ScrollTrigger) => {
-    gsap.from(ref.current.querySelectorAll(".lp-testimonial-card"), { opacity:0, y:36, stagger:.13, duration:.8, ease:"power2.out", scrollTrigger:{ trigger:ref.current, start:"top 82%", once:true }})
+    gsap.set(ref.current.querySelectorAll(".lp-testimonial-card"), { opacity:0, y:36 })
+    gsap.to(ref.current.querySelectorAll(".lp-testimonial-card"), { opacity:1, y:0, stagger:.13, duration:.8, ease:"power2.out", scrollTrigger:{ trigger:ref.current, start:"top 82%", once:true }})
   })
   return (
     <section className="lp-section">
@@ -449,7 +456,8 @@ function Testimonials() {
 function Pricing() {
   const ref = useRef(null)
   useGSAP((gsap, ScrollTrigger) => {
-    gsap.from(ref.current.querySelectorAll(".lp-plan-card"), { opacity:0, y:40, stagger:.1, duration:.8, ease:"power2.out", scrollTrigger:{ trigger:ref.current, start:"top 82%", once:true }})
+    gsap.set(ref.current.querySelectorAll(".lp-plan-card"), { opacity:0, y:40 })
+    gsap.to(ref.current.querySelectorAll(".lp-plan-card"), { opacity:1, y:0, stagger:.1, duration:.8, ease:"power2.out", scrollTrigger:{ trigger:ref.current, start:"top 82%", once:true }})
   })
   return (
     <section id="pricing" style={{background:"#080f1a", padding:"72px 60px"}}>
@@ -498,7 +506,8 @@ function FAQ() {
   const [open, setOpen] = useState(null)
   const ref = useRef(null)
   useGSAP((gsap, ScrollTrigger) => {
-    gsap.from(ref.current.querySelectorAll(".lp-faq-item"), { opacity:0, x:-20, stagger:.07, duration:.6, ease:"power2.out", scrollTrigger:{ trigger:ref.current, start:"top 82%", once:true }})
+    gsap.set(ref.current.querySelectorAll(".lp-faq-item"), { opacity:0, x:-20 })
+    gsap.to(ref.current.querySelectorAll(".lp-faq-item"), { opacity:1, x:0, stagger:.07, duration:.6, ease:"power2.out", scrollTrigger:{ trigger:ref.current, start:"top 82%", once:true }})
   })
   return (
     <section id="faq" className="lp-section">
@@ -523,7 +532,8 @@ function FAQ() {
 function CTAFinal() {
   const ref = useRef(null)
   useGSAP((gsap, ScrollTrigger) => {
-    gsap.from(ref.current.querySelectorAll(".gs-reveal"), { opacity:0, y:28, stagger:.1, duration:.8, ease:"power2.out", scrollTrigger:{ trigger:ref.current, start:"top 82%", once:true }})
+    gsap.set(ref.current.querySelectorAll(".gs-reveal"), { opacity:0, y:28 })
+    gsap.to(ref.current.querySelectorAll(".gs-reveal"), { opacity:1, y:0, stagger:.1, duration:.8, ease:"power2.out", scrollTrigger:{ trigger:ref.current, start:"top 82%", once:true }})
   })
   return (
     <div className="lp-cta" ref={ref}>
@@ -557,8 +567,7 @@ function Footer() {
 export default function LandingPage() {
   return (
     <div className="lp-root">
-      <InjectCSS/>
-      <Nav/>
+        <Nav/>
       <Hero/>
       <Stats/>
       <Features/>
