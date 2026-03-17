@@ -296,6 +296,28 @@ export default function Financial() {
     setPayments(pays); setPatientMap(pMap); setFetching(false)
   }
 
+  const aggregateRevenueByWeek = (payments) => {
+    const weekBuckets = {};
+    
+    payments.forEach(p => {
+      if (p.status !== 'paid') return;
+      
+      const d = new Date(p.created_at);
+      const startOfWeek = new Date(d);
+      startOfWeek.setDate(d.getDate() - (d.getDay() === 0 ? 6 : d.getDay() - 1));
+      startOfWeek.setHours(0, 0, 0, 0);
+      
+      const endOfWeek = new Date(startOfWeek);
+      endOfWeek.setDate(startOfWeek.getDate() + 6);
+      
+      const key = `${startOfWeek.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })} - ${endOfWeek.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}`;
+      
+      weekBuckets[key] = (weekBuckets[key] || 0) + parseFloat(p.final_amount || 0);
+    });
+    
+    return Object.entries(weekBuckets).map(([semana, valor]) => ({ semana, valor }));
+  };
+
   async function handleStatusChange(id, newStatus) {
     const { error } = await supabase.from("payments").update({
       status: newStatus,
