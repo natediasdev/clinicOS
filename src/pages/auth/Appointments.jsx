@@ -438,23 +438,30 @@ export default function Appointments() {
             <div style={{ display:"flex", gap:8, marginBottom:12, overflowX:"auto", flexWrap:isMobile?"nowrap":"wrap", paddingBottom:isMobile?4:0 }}>
               <Button 
                 onClick={()=>setFilterStatus("all")} 
-                variant={filterStatus==="all"?"primary":"secondary"} 
-                style={{ flexShrink:0, padding:"6px 14px" }}
+                variant={filterStatus==="all"?"secondary":"ghost"} 
+                style={{ 
+                  flexShrink:0, 
+                  padding:"6px 14px",
+                  background: filterStatus==="all" ? t.bgCard : undefined,
+                  border: `1px solid ${filterStatus==="all" ? t.accent : t.border}`,
+                  color: filterStatus==="all" ? t.accent : undefined
+                }}
               >
                 Todos <span style={s.filterCount}>{appointments.length}</span>
               </Button>
               {Object.entries(STATUS_CONFIG).map(([key,cfg])=>{
                 const count = appointments.filter(a=>a.status===key).length
+                const isActive = filterStatus===key
                 return (
                   <Button key={key}
                     onClick={()=>setFilterStatus(key)}
-                    variant={filterStatus===key?"primary":"secondary"}
+                    variant={isActive?"secondary":"ghost"}
                     style={{ 
                       flexShrink:0, 
                       padding:"6px 14px",
-                      color: filterStatus===key ? cfg.color : undefined,
-                      background: filterStatus===key ? cfg.bg : undefined,
-                      border: filterStatus===key ? `1px solid ${cfg.border}` : undefined
+                      color: cfg.color,
+                      background: isActive ? cfg.bg : undefined,
+                      border: `1px solid ${isActive ? cfg.border : t.border}`
                     }}
                   >
                     {cfg.label} <span style={s.filterCount}>{count}</span>
