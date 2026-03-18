@@ -470,7 +470,7 @@ export default function Appointments() {
                       fontFamily: "inherit",
                       color: isActive ? cfg.color : t.textFaint,
                       background: isActive ? cfg.bg : "transparent",
-                      border: `1px solid ${isActive ? cfg.color + "55" : t.border}`,
+                      border: `1px solid ${isActive ? cfg.border : t.border}`,
                       transition: "all .15s",
                     }}
                   >
