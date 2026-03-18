@@ -4,6 +4,8 @@ import { supabase } from "../../supabaseClient"
 import { useAuth } from "../../context/AuthContext"
 import { useTheme } from "../../context/ThemeContext"
 import AppLayout from "../AppLayout"
+import { Button, Input, Card } from "../../components/ui"
+import { STATUS_COLORS } from "../../config/statusColors"
 
 // ─── Tabs ─────────────────────────────────────────────────────────────────────
 const TABS = [
@@ -70,7 +72,6 @@ function TabOverview({ patient, clinicId, t, isMobile }) {
     else showToast("Dados salvos com sucesso!")
   }
 
-  const inp = { background:t.bgInput, border:`1px solid ${t.border}`, borderRadius:8, padding:"10px 12px", fontSize:14, color:t.textPrimary, outline:"none", width:"100%", boxSizing:"border-box", transition:"border-color 0.2s" }
   const col2 = { display:"grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap:14 }
 
   if (loading) return <div style={{ display:"flex",flexDirection:"column",gap:8 }}>{[1,2,3,4].map(i=><div key={i} className="skeleton-shimmer" style={{ height:48 }}/>)}</div>
@@ -85,19 +86,17 @@ function TabOverview({ patient, clinicId, t, isMobile }) {
           <div style={col2}>
             {[["CPF","text","000.000.000-00","cpf"],["Data de nascimento","date","","birth_date"]].map(([lbl,type,ph,key])=>(
               <Field key={key} label={lbl} t={t}>
-                <input type={type} placeholder={ph} value={form[key]} onChange={e=>set(key,e.target.value)} style={inp}
-                  onFocus={e=>e.target.style.borderColor=t.accent} onBlur={e=>e.target.style.borderColor=t.border} />
+                <Input type={type} placeholder={ph} value={form[key]} onChange={e=>set(key,e.target.value)} />
               </Field>
             ))}
             <Field label="Gênero" t={t}>
-              <select value={form.gender} onChange={e=>set("gender",e.target.value)} style={{ ...inp, cursor:"pointer" }}>
+              <select value={form.gender} onChange={e=>set("gender",e.target.value)} style={{ background:t.bgInput, border:`1px solid ${t.border}`, borderRadius:8, padding:"10px 12px", fontSize:14, color:t.textPrimary, outline:"none", width:"100%", boxSizing:"border-box", cursor:"pointer" }}>
                 <option value="">Não informado</option>
                 {["Masculino","Feminino","Não-binário","Outro"].map(g=><option key={g} value={g}>{g}</option>)}
               </select>
             </Field>
             <Field label="Endereço" t={t}>
-              <input type="text" placeholder="Rua, número, bairro" value={form.address} onChange={e=>set("address",e.target.value)} style={inp}
-                onFocus={e=>e.target.style.borderColor=t.accent} onBlur={e=>e.target.style.borderColor=t.border} />
+              <Input type="text" placeholder="Rua, número, bairro" value={form.address} onChange={e=>set("address",e.target.value)} />
             </Field>
           </div>
         </Section>
@@ -107,8 +106,7 @@ function TabOverview({ patient, clinicId, t, isMobile }) {
           <div style={col2}>
             {[["Nome","text","Nome do contato","emergency_contact"],["Telefone","text","(00) 00000-0000","emergency_phone"]].map(([lbl,type,ph,key])=>(
               <Field key={key} label={lbl} t={t}>
-                <input type={type} placeholder={ph} value={form[key]} onChange={e=>set(key,e.target.value)} style={inp}
-                  onFocus={e=>e.target.style.borderColor=t.accent} onBlur={e=>e.target.style.borderColor=t.border} />
+                <Input type={type} placeholder={ph} value={form[key]} onChange={e=>set(key,e.target.value)} />
               </Field>
             ))}
           </div>
@@ -120,16 +118,16 @@ function TabOverview({ patient, clinicId, t, isMobile }) {
             {[["Alergias","Ex: Penicilina, Látex...","allergies"],["Medicamentos em uso","Ex: Losartana 50mg...","medications"],["Histórico médico","Cirurgias, doenças crônicas, observações...","medical_history"]].map(([lbl,ph,key])=>(
               <Field key={key} label={lbl} t={t}>
                 <textarea placeholder={ph} value={form[key]} onChange={e=>set(key,e.target.value)} rows={3}
-                  style={{ ...inp, resize:"vertical", lineHeight:1.6 }}
+                  style={{ background:t.bgInput, border:`1px solid ${t.border}`, borderRadius:8, padding:"10px 12px", fontSize:14, color:t.textPrimary, outline:"none", width:"100%", boxSizing:"border-box", resize:"vertical", lineHeight:1.6 }}
                   onFocus={e=>e.target.style.borderColor=t.accent} onBlur={e=>e.target.style.borderColor=t.border} />
               </Field>
             ))}
           </div>
         </Section>
 
-        <button onClick={handleSave} disabled={saving} style={{ background:t.accent, border:"none", borderRadius:8, padding:"12px 24px", fontSize:14, fontWeight:700, color:"#fff", cursor:"pointer", opacity:saving?0.6:1, alignSelf:"flex-start", width: isMobile?"100%":"auto" }}>
+        <Button onClick={handleSave} disabled={saving} loading={saving} fullWidth={isMobile} style={{ alignSelf:"flex-start", width: isMobile?"100%":"auto" }}>
           {saving ? "Salvando..." : "Salvar dados"}
-        </button>
+        </Button>
       </div>
     </>
   )
@@ -173,22 +171,19 @@ function TabNotes({ patient, clinicId, user, t, isMobile }) {
 
   useEffect(() => { fetchNotes() }, [patient.id])
 
-  const inp = { background:t.bgInput, border:`1px solid ${t.border}`, borderRadius:8, padding:"10px 12px", fontSize:14, color:t.textPrimary, outline:"none", width:"100%", boxSizing:"border-box" }
-
   return (
     <>
       <Toast toast={toast} />
       <div style={{ display:"flex", flexDirection:"column", gap:16 }}>
         <Section title="Nova anotação" t={t}>
           <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
-            <input type="text" placeholder="Título (opcional)" value={title} onChange={e=>setTitle(e.target.value)} style={inp}
-              onFocus={e=>e.target.style.borderColor=t.accent} onBlur={e=>e.target.style.borderColor=t.border} />
+            <Input type="text" placeholder="Título (opcional)" value={title} onChange={e=>setTitle(e.target.value)} />
             <textarea placeholder="Descreva a evolução clínica, observações, procedimentos realizados..." value={text} onChange={e=>setText(e.target.value)} rows={5}
-              style={{ ...inp, resize:"vertical", lineHeight:1.6 }}
+              style={{ background:t.bgInput, border:`1px solid ${t.border}`, borderRadius:8, padding:"10px 12px", fontSize:14, color:t.textPrimary, outline:"none", width:"100%", boxSizing:"border-box", resize:"vertical", lineHeight:1.6 }}
               onFocus={e=>e.target.style.borderColor=t.accent} onBlur={e=>e.target.style.borderColor=t.border} />
-            <button onClick={handleSave} disabled={saving||!text.trim()} style={{ background:t.accent, border:"none", borderRadius:8, padding:"10px 20px", fontSize:14, fontWeight:700, color:"#fff", cursor:"pointer", opacity:saving||!text.trim()?0.5:1, alignSelf: isMobile?"auto":"flex-start", width: isMobile?"100%":"auto" }}>
+            <Button onClick={handleSave} disabled={saving||!text.trim()} loading={saving} fullWidth={isMobile} style={{ alignSelf: isMobile?"auto":"flex-start", width: isMobile?"100%":"auto" }}>
               {saving ? "Salvando..." : "＋ Salvar anotação"}
-            </button>
+            </Button>
           </div>
         </Section>
 
@@ -208,9 +203,7 @@ function TabNotes({ patient, clinicId, user, t, isMobile }) {
                       {n.author_name && ` · ${n.author_name}`}
                     </span>
                   </div>
-                  <button onClick={()=>handleDelete(n.id)} style={{ background:"transparent", border:`1px solid ${t.borderStrong}`, color:t.textFaint, borderRadius:6, padding:"4px 10px", fontSize:11, cursor:"pointer", flexShrink:0 }}>
-                    Remover
-                  </button>
+                  <Button onClick={()=>handleDelete(n.id)} size="sm" variant="ghost">Remover</Button>
                 </div>
                 <p style={{ fontSize:14, color:t.textBody, lineHeight:1.7, margin:0, whiteSpace:"pre-wrap" }}>{n.content}</p>
               </div>
@@ -227,12 +220,7 @@ function TabHistory({ patient, t }) {
   const [appointments, setAppointments] = useState([])
   const [loading, setLoading] = useState(true)
 
-  const STATUS = {
-    scheduled: { label:"Agendado",  color:"#3b82f6" },
-    completed:  { label:"Concluído", color:"#22c55e" },
-    cancelled:  { label:"Cancelado", color:"#ef4444" },
-    no_show:    { label:"Não veio",  color:"#f59e0b" },
-  }
+  const STATUS = STATUS_COLORS
 
   useEffect(() => {
     async function load() {
@@ -357,8 +345,8 @@ function TabAttachments({ patient, clinicId, user, t, isMobile }) {
                   <span style={{ fontSize:12, color:t.textGhost }}>{formatSize(a.file_size)} · {new Date(a.created_at).toLocaleDateString("pt-BR")}</span>
                 </div>
                 <div style={{ display:"flex", gap:6, flexShrink:0 }}>
-                  <button onClick={()=>handleDownload(a)} style={{ background:t.bgInset, border:`1px solid ${t.border}`, color:t.textMuted, borderRadius:6, padding:"5px 12px", fontSize:12, cursor:"pointer" }}>↓</button>
-                  <button onClick={()=>handleDelete(a)} style={{ background:"transparent", border:`1px solid ${t.borderStrong}`, color:t.textFaint, borderRadius:6, padding:"5px 12px", fontSize:12, cursor:"pointer" }}>✕</button>
+                   <Button onClick={()=>handleDownload(a)} size="sm">↓</Button>
+                   <Button onClick={()=>handleDelete(a)} size="sm" variant="ghost">✕</Button>
                 </div>
               </div>
             ))}
@@ -437,9 +425,9 @@ export default function PatientRecord() {
       <div style={{ textAlign:"center", padding:"80px 0" }}>
         <span style={{ fontSize:48 }}>🔍</span>
         <p style={{ color:t.textGhost, fontSize:16, marginTop:12 }}>Paciente não encontrado.</p>
-        <button onClick={()=>navigate("/patients")} style={{ marginTop:16, background:t.accent, border:"none", borderRadius:8, padding:"10px 24px", color:"#fff", fontWeight:700, fontSize:14, cursor:"pointer" }}>
-          ← Voltar
-        </button>
+        <Button onClick={()=>navigate("/patients")} style={{ marginTop:16 }}>
+          Voltar para pacientes
+        </Button>
       </div>
     </AppLayout>
   )
@@ -450,9 +438,9 @@ export default function PatientRecord() {
 
         {/* Header do paciente */}
         <div style={{ marginBottom:24 }}>
-          <button onClick={()=>navigate("/patients")} style={{ background:"transparent", border:"none", color:t.textFaint, fontSize:13, cursor:"pointer", padding:0, marginBottom:16, display:"flex", alignItems:"center", gap:6 }}>
+          <Button onClick={()=>navigate("/patients")} variant="ghost" style={{ padding:0, marginBottom:16 }}>
             ← Pacientes
-          </button>
+          </Button>
           <div style={{ display:"flex", alignItems:"center", gap:16, flexWrap:"wrap" }}>
             <div style={{ width:52, height:52, borderRadius:"50%", background:t.accent+"22", display:"flex", alignItems:"center", justifyContent:"center", fontSize:20, fontWeight:800, color:t.accent, flexShrink:0 }}>
               {patient.name?.[0]?.toUpperCase() ?? "?"}
@@ -470,18 +458,17 @@ export default function PatientRecord() {
         {/* Tabs */}
         <div style={{ display:"flex", gap:4, marginBottom:20, overflowX:"auto", paddingBottom:4, borderBottom:`1px solid ${t.border}` }}>
           {TABS.map(tab => (
-            <button key={tab.id} onClick={()=>setActiveTab(tab.id)} style={{
-              background: activeTab===tab.id ? t.bgCard : "transparent",
-              border: activeTab===tab.id ? `1px solid ${t.border}` : "1px solid transparent",
-              borderRadius:8, padding: isMobile ? "8px 12px" : "8px 16px",
-              fontSize:13, fontWeight: activeTab===tab.id ? 700 : 500,
-              color: activeTab===tab.id ? t.textPrimary : t.textFaint,
-              cursor:"pointer", display:"flex", alignItems:"center", gap:6, flexShrink:0,
-              transition:"all 0.15s",
+            <Button key={tab.id} onClick={()=>setActiveTab(tab.id)} variant={activeTab===tab.id ? "primary" : "ghost"} style={{
+              background: activeTab===tab.id ? undefined : "transparent",
+              border: activeTab===tab.id ? undefined : "1px solid transparent",
+              padding: isMobile ? "8px 12px" : "8px 16px",
+              fontWeight: activeTab===tab.id ? 700 : 500,
+              color: activeTab===tab.id ? undefined : t.textFaint,
+              flexShrink:0,
             }}>
               <span>{tab.icon}</span>
               {tab.label}
-            </button>
+            </Button>
           ))}
         </div>
 

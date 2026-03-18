@@ -3,15 +3,12 @@ import { useAuth } from "../../context/AuthContext"
 import { useTheme } from "../../context/ThemeContext"
 import { supabase } from "../../supabaseClient"
 import AppLayout from "../AppLayout"
+import { Button, Input } from "../../components/ui"
+import { STATUS_COLORS, getStatusConfig } from "../../config/statusColors"
 
 // ─── Constantes ───────────────────────────────────────────────────────────────
 
-const STATUS_CONFIG = {
-  scheduled: { label: "Agendado",  color: "#3b82f6", bg: "#0c1f3a" },
-  completed: { label: "Concluído", color: "#22c55e", bg: "#052e16" },
-  cancelled: { label: "Cancelado", color: "#ef4444", bg: "#450a0a" },
-  no_show:   { label: "Não veio",  color: "#f59e0b", bg: "#1c1107" },
-}
+const STATUS_CONFIG = STATUS_COLORS
 
 const DAYS_PT   = ["Dom","Seg","Ter","Qua","Qui","Sex","Sáb"]
 const MONTHS_PT = ["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"]
@@ -46,15 +43,15 @@ function useIsMobile() {
 
 // ─── Toast ────────────────────────────────────────────────────────────────────
 
-function Toast({ toast }) {
+function Toast({ toast, t }) {
   if (!toast) return null
   const ok = toast.type === "success"
   return (
     <div style={{
       position:"fixed", bottom:24, right:24, zIndex:999,
-      background: ok ? "#052e16" : "#450a0a",
-      border: `1px solid ${ok ? "#166534" : "#7f1d1d"}`,
-      color: ok ? "#86efac" : "#fca5a5",
+      background: ok ? t.successBg : t.errorBg,
+      border: `1px solid ${ok ? t.successBorder : t.errorBorder}`,
+      color: ok ? t.successText : t.errorText,
       borderRadius:10, padding:"12px 20px", fontSize:14, fontWeight:600,
       fontFamily:"'DM Sans','Segoe UI',sans-serif", boxShadow:"0 8px 24px rgba(0,0,0,0.4)",
     }}>
@@ -84,8 +81,6 @@ function PatientSearchInput({ value, onSelect, clinicId }) {
   const [open, setOpen]       = useState(false)
   const ref = useRef()
 
-  const inp = { background:t.bgCard, border:"1px solid #1e293b", borderRadius:8, padding:"10px 12px", fontSize:14, color:t.textPrimary, outline:"none", transition:"border-color 0.2s", width:"100%", boxSizing:"border-box" }
-
   useEffect(() => { if (value) setQuery(value.name) }, [value])
   useEffect(() => {
     const fn = e => { if (ref.current && !ref.current.contains(e.target)) setOpen(false) }
@@ -105,23 +100,23 @@ function PatientSearchInput({ value, onSelect, clinicId }) {
 
   return (
     <div ref={ref} style={{ position:"relative" }}>
-      <input type="text" placeholder="Digite o nome do paciente..." value={query} onChange={e=>search(e.target.value)} style={inp}
-        onFocus={e=>{ e.target.style.borderColor="#3b82f6"; if (results.length) setOpen(true) }}
-        onBlur={e=>e.target.style.borderColor="#1e293b"} />
+      <Input type="text" placeholder="Digite o nome do paciente..." value={query} onChange={e=>search(e.target.value)}
+        onFocus={() => { if (results.length) setOpen(true) }}
+        onBlur={() => {}} />
       {open && results.length > 0 && (
-        <div style={{ position:"absolute", top:"calc(100% + 4px)", left:0, right:0, background:t.bgCard, border:"1px solid #334155", borderRadius:8, zIndex:50, overflow:"hidden", boxShadow:"0 8px 24px rgba(0,0,0,0.4)" }}>
+        <div style={{ position:"absolute", top:"calc(100% + 4px)", left:0, right:0, background:t.bgCard, border:`1px solid ${t.borderStrong}`, borderRadius:8, zIndex:50, overflow:"hidden", boxShadow:"0 8px 24px rgba(0,0,0,0.4)" }}>
           {results.map(p => (
             <div key={p.id} onMouseDown={()=>{ onSelect(p); setQuery(p.name); setOpen(false) }}
-              style={{ padding:"10px 16px", cursor:"pointer", display:"flex", flexDirection:"column", gap:2, borderBottom:"1px solid #0f172a" }}>
-              <span style={{ fontWeight:600, color:"#f1f5f9" }}>{p.name}</span>
-              {p.phone && <span style={{ fontSize:12, color:"#475569" }}>{p.phone}</span>}
+              style={{ padding:"10px 16px", cursor:"pointer", display:"flex", flexDirection:"column", gap:2, borderBottom:`1px solid ${t.bgInset}` }}>
+              <span style={{ fontWeight:600, color:t.textPrimary }}>{p.name}</span>
+              {p.phone && <span style={{ fontSize:12, color:t.textGhost }}>{p.phone}</span>}
             </div>
           ))}
         </div>
       )}
       {open && query.length >= 2 && results.length === 0 && (
-        <div style={{ position:"absolute", top:"calc(100% + 4px)", left:0, right:0, background:t.bgCard, border:"1px solid #334155", borderRadius:8, zIndex:50 }}>
-          <div style={{ padding:"12px 16px", fontSize:13, color:"#475569" }}>Nenhum paciente encontrado</div>
+        <div style={{ position:"absolute", top:"calc(100% + 4px)", left:0, right:0, background:t.bgCard, border:`1px solid ${t.borderStrong}`, borderRadius:8, zIndex:50 }}>
+          <div style={{ padding:"12px 16px", fontSize:13, color:t.textGhost }}>Nenhum paciente encontrado</div>
         </div>
       )}
     </div>
@@ -139,8 +134,6 @@ function AppointmentModal({ onClose, onSave, staffList, clinicId }) {
   const [status,   setStatus]   = useState("scheduled")
   const [loading,  setLoading]  = useState(false)
   const [error,    setError]    = useState(null)
-
-  const inp = { background:t.bgCard, border:"1px solid #1e293b", borderRadius:8, padding:"10px 12px", fontSize:14, color:t.textPrimary, outline:"none", transition:"border-color 0.2s", width:"100%", boxSizing:"border-box" }
 
   useEffect(() => {
     const fn = e => { if (e.key === "Escape") onClose() }
@@ -163,9 +156,9 @@ function AppointmentModal({ onClose, onSave, staffList, clinicId }) {
   return (
     <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.7)", display:"flex", alignItems:"center", justifyContent:"center", zIndex:100, padding:24 }}
       onClick={e=>e.target===e.currentTarget&&onClose()}>
-      <div style={{ background:t.bgInset, border:"1px solid #1e293b", borderRadius:16, width:"100%", maxWidth:480, display:"flex", flexDirection:"column" }}>
+      <div style={{ background:t.bgInset, border:`1px solid ${t.border}`, borderRadius:16, width:"100%", maxWidth:480, display:"flex", flexDirection:"column" }}>
 
-        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"20px 24px", borderBottom:"1px solid #1e293b" }}>
+        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"20px 24px", borderBottom:`1px solid ${t.border}` }}>
           <h2 style={{ fontSize:16, fontWeight:700, color:t.textPrimary, margin:0 }}>Novo agendamento</h2>
           <button style={{ background:"transparent", border:"none", color:t.textGhost, fontSize:18, cursor:"pointer" }} onClick={onClose}>✕</button>
         </div>
@@ -178,14 +171,13 @@ function AppointmentModal({ onClose, onSave, staffList, clinicId }) {
 
           <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
             <label style={{ fontSize:12, fontWeight:600, color:t.textFaint }}>Data e hora *</label>
-            <input type="datetime-local" value={datetime} onChange={e=>setDatetime(e.target.value)} style={inp}
-              onFocus={e=>e.target.style.borderColor="#3b82f6"} onBlur={e=>e.target.style.borderColor="#1e293b"} />
+            <Input type="datetime-local" value={datetime} onChange={e=>setDatetime(e.target.value)} />
           </div>
 
           {staffList.length > 0 && (
             <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
               <label style={{ fontSize:12, fontWeight:600, color:t.textFaint }}>Profissional</label>
-              <select value={staffId} onChange={e=>setStaffId(e.target.value)} style={{ ...inp, cursor:"pointer" }}>
+              <select value={staffId} onChange={e=>setStaffId(e.target.value)} style={{ background:t.bgInput, border:`1px solid ${t.border}`, borderRadius:8, padding:"10px 12px", fontSize:14, color:t.textPrimary, outline:"none", width:"100%", boxSizing:"border-box", cursor:"pointer" }}>
                 <option value="">Sem profissional definido</option>
                 {staffList.map(st=><option key={st.id} value={st.id}>{st.name}</option>)}
               </select>
@@ -194,20 +186,19 @@ function AppointmentModal({ onClose, onSave, staffList, clinicId }) {
 
           <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
             <label style={{ fontSize:12, fontWeight:600, color:t.textFaint }}>Status</label>
-            <select value={status} onChange={e=>setStatus(e.target.value)} style={{ ...inp, cursor:"pointer" }}>
+            <select value={status} onChange={e=>setStatus(e.target.value)} style={{ background:t.bgInput, border:`1px solid ${t.border}`, borderRadius:8, padding:"10px 12px", fontSize:14, color:t.textPrimary, outline:"none", width:"100%", boxSizing:"border-box", cursor:"pointer" }}>
               {Object.entries(STATUS_CONFIG).map(([k,cfg])=><option key={k} value={k}>{cfg.label}</option>)}
             </select>
           </div>
 
-          {error && <div style={{ background:"#450a0a", border:"1px solid #7f1d1d", color:"#fca5a5", borderRadius:8, padding:"10px 14px", fontSize:13 }}>{error}</div>}
+          {error && <div style={{ background:t.errorBg, border:`1px solid ${t.errorBorder}`, color:t.errorText, borderRadius:8, padding:"10px 14px", fontSize:13 }}>{error}</div>}
         </div>
 
-        <div style={{ display:"flex", justifyContent:"flex-end", gap:10, padding:"16px 24px", borderTop:"1px solid #1e293b" }}>
-          <button style={{ background:"transparent", border:"1px solid #334155", color:t.textMuted, borderRadius:8, padding:"10px 18px", fontSize:14, cursor:"pointer" }} onClick={onClose}>Cancelar</button>
-          <button style={{ background:"#3b82f6", border:"none", color:"#fff", borderRadius:8, padding:"10px 20px", fontSize:14, fontWeight:700, cursor:"pointer", opacity:loading||!patient||!datetime?0.5:1 }}
-            onClick={handleSave} disabled={loading||!patient||!datetime}>
+        <div style={{ display:"flex", justifyContent:"flex-end", gap:10, padding:"16px 24px", borderTop:`1px solid ${t.border}` }}>
+          <Button onClick={onClose} variant="secondary">Cancelar</Button>
+          <Button onClick={handleSave} disabled={loading} loading={loading}>
             {loading ? "Salvando..." : "Agendar"}
-          </button>
+          </Button>
         </div>
       </div>
     </div>
@@ -235,11 +226,9 @@ function CalendarView({ appointments, onDayClick }) {
   return (
     <div style={{ background:t.bgCard, borderRadius:12, padding:24 }}>
       <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:20 }}>
-        <button style={{ background:"transparent", border:"1px solid #334155", color:t.textMuted, borderRadius:8, padding:"6px 14px", fontSize:18, cursor:"pointer" }}
-          onClick={()=>setCurrent(new Date(year,month-1,1))}>‹</button>
+        <Button onClick={()=>setCurrent(new Date(year,month-1,1))} variant="secondary" style={{ padding:"6px 14px", fontSize:18 }}>‹</Button>
         <span style={{ fontSize:16, fontWeight:700, color:t.textPrimary }}>{MONTHS_PT[month]} {year}</span>
-        <button style={{ background:"transparent", border:"1px solid #334155", color:t.textMuted, borderRadius:8, padding:"6px 14px", fontSize:18, cursor:"pointer" }}
-          onClick={()=>setCurrent(new Date(year,month+1,1))}>›</button>
+        <Button onClick={()=>setCurrent(new Date(year,month+1,1))} variant="secondary" style={{ padding:"6px 14px", fontSize:18 }}>›</Button>
       </div>
       <div style={{ display:"grid", gridTemplateColumns:"repeat(7,1fr)", gap:4 }}>
         {DAYS_PT.map(d=><div key={d} style={{ fontSize:11, fontWeight:700, color:t.textGhost, textAlign:"center", padding:"4px 0 8px", textTransform:"uppercase" }}>{d}</div>)}
@@ -249,9 +238,9 @@ function CalendarView({ appointments, onDayClick }) {
           const isToday = isSameDay(new Date(year,month,day), today)
           return (
             <div key={day}
-              style={{ minHeight:72, background:t.bgInset, borderRadius:8, padding:"6px 8px", cursor:appts.length?"pointer":"default", border:isToday?"1px solid #3b82f6":"1px solid transparent" }}
+              style={{ minHeight:72, background:t.bgInset, borderRadius:8, padding:"6px 8px", cursor:appts.length?"pointer":"default", border:isToday?`1px solid ${t.accent}`:"1px solid transparent" }}
               onClick={()=>appts.length&&onDayClick(new Date(year,month,day),appts)}>
-              <span style={{ fontSize:13, color:isToday?"#3b82f6":t.textFaint, fontWeight:isToday?800:400, display:"block", marginBottom:4 }}>{day}</span>
+              <span style={{ fontSize:13, color:isToday?t.accent:t.textFaint, fontWeight:isToday?800:400, display:"block", marginBottom:4 }}>{day}</span>
               <div style={{ display:"flex", gap:3, flexWrap:"wrap", alignItems:"center" }}>
                 {appts.slice(0,3).map((a,idx)=>(
                   <span key={idx} style={{ width:7, height:7, borderRadius:"50%", display:"inline-block", background:STATUS_CONFIG[a.status]?.color??"#64748b" }} title={formatTime(a.datetime)} />
@@ -291,32 +280,25 @@ export default function Appointments() {
 
   // styles locais usados apenas neste componente
   const s = {
-    btnPrimary:      { background:"#3b82f6", border:"none", color:"#fff", borderRadius:8, padding:"10px 20px", fontSize:14, fontWeight:700, cursor:"pointer" },
-    viewToggle:      { display:"flex", background:t.bgInset, borderRadius:8, border:"1px solid #1e293b", overflow:"hidden" },
-    toggleBtn:       { background:"transparent", border:"none", color:t.textGhost, padding:"8px 16px", fontSize:13, fontWeight:600, cursor:"pointer" },
-    toggleBtnActive: { background:t.bgCard, color:t.textPrimary },
-    filterBtn:       { background:"transparent", border:"1px solid #1e293b", color:t.textFaint, borderRadius:8, padding:"6px 14px", fontSize:13, fontWeight:600, cursor:"pointer", display:"flex", alignItems:"center", gap:6 },
-    filterBtnActive: { background:t.bgCard, color:t.textPrimary, borderColor:t.borderStrong },
+    viewToggle:      { display:"flex", background:t.bgInset, borderRadius:8, border:`1px solid ${t.border}`, overflow:"hidden" },
     filterCount:     { background:t.bgInset, borderRadius:99, padding:"1px 7px", fontSize:11 },
     listCard:        { background:t.bgCard, borderRadius:12, padding:24, overflow:"hidden" },
     table:           { width:"100%", borderCollapse:"collapse" },
-    th:              { fontSize:11, fontWeight:700, color:t.textGhost, textTransform:"uppercase", letterSpacing:"0.08em", padding:"0 12px 12px", textAlign:"left", borderBottom:"1px solid #0f172a" },
-    tr:              { borderBottom:"1px solid #0f172a" },
+    th:              { fontSize:11, fontWeight:700, color:t.textGhost, textTransform:"uppercase", letterSpacing:"0.08em", padding:"0 12px 12px", textAlign:"left", borderBottom:`1px solid ${t.bgInset}` },
+    tr:              { borderBottom:`1px solid ${t.bgInset}` },
     td:              { padding:"14px 12px", fontSize:14, verticalAlign:"middle" },
     patientName:     { fontWeight:600, color:t.textPrimary, display:"block" },
     patientPhone:    { fontSize:12, color:t.textGhost, display:"block" },
     tdMain:          { fontWeight:500, color:t.textBody },
     tdMuted:         { color:t.textGhost },
-    statusSelect:    { background:t.bgInset, border:"1px solid #1e293b", borderRadius:6, padding:"4px 8px", fontSize:12, fontWeight:700, cursor:"pointer", outline:"none" },
-    btnDelete:       { background:"transparent", border:"1px solid #334155", color:t.textFaint, borderRadius:6, padding:"5px 14px", fontSize:12, cursor:"pointer" },
     modalOverlay:    { position:"fixed", inset:0, background:"rgba(0,0,0,0.7)", display:"flex", alignItems:"center", justifyContent:"center", zIndex:100, padding:24 },
-    modal:           { background:t.bgInset, border:"1px solid #1e293b", borderRadius:16, width:"100%", maxWidth:480, display:"flex", flexDirection:"column" },
-    modalHeader:     { display:"flex", justifyContent:"space-between", alignItems:"center", padding:"20px 24px", borderBottom:"1px solid #1e293b" },
+    modal:           { background:t.bgInset, border:`1px solid ${t.border}`, borderRadius:16, width:"100%", maxWidth:480, display:"flex", flexDirection:"column" },
+    modalHeader:     { display:"flex", justifyContent:"space-between", alignItems:"center", padding:"20px 24px", borderBottom:`1px solid ${t.border}` },
     modalTitle:      { fontSize:16, fontWeight:700, color:t.textPrimary, margin:0 },
     modalClose:      { background:"transparent", border:"none", color:t.textGhost, fontSize:18, cursor:"pointer" },
     modalBody:       { padding:24, display:"flex", flexDirection:"column", gap:16 },
-    dayApptRow:      { display:"flex", alignItems:"center", gap:12, padding:"10px 0", borderBottom:"1px solid #1e293b" },
-    dayApptTime:     { fontSize:14, fontWeight:700, color:"#3b82f6", width:48, flexShrink:0 },
+    dayApptRow:      { display:"flex", alignItems:"center", gap:12, padding:"10px 0", borderBottom:`1px solid ${t.border}` },
+    dayApptTime:     { fontSize:14, fontWeight:700, color:t.accent, width:48, flexShrink:0 },
     dayApptName:     { fontSize:14, fontWeight:600, color:t.textPrimary, flex:1 },
   }
 
@@ -421,7 +403,7 @@ export default function Appointments() {
           <div style={s.modal} onClick={e=>e.stopPropagation()}>
             <div style={s.modalHeader}>
               <h2 style={s.modalTitle}>{selectedDay.date.toLocaleDateString("pt-BR",{weekday:"long",day:"2-digit",month:"long"})}</h2>
-              <button style={s.modalClose} onClick={()=>setSelectedDay(null)}>✕</button>
+              <button style={{ background:"transparent", border:"none", color:t.textGhost, fontSize:18, cursor:"pointer" }} onClick={()=>setSelectedDay(null)}>✕</button>
             </div>
             <div style={s.modalBody}>
               {selectedDay.appts.map(a=>(
@@ -444,46 +426,56 @@ export default function Appointments() {
           </div>
           <div style={{ display:"flex", gap:10, alignItems:"center", flexWrap:"wrap", width:isMobile?"100%":"auto" }}>
             <div style={s.viewToggle}>
-              <button style={view==="list"?{...s.toggleBtn,...s.toggleBtnActive}:s.toggleBtn} onClick={()=>setView("list")}>☰ Lista</button>
-              <button style={view==="calendar"?{...s.toggleBtn,...s.toggleBtnActive}:s.toggleBtn} onClick={()=>setView("calendar")}>⊟ Calendário</button>
+              <Button onClick={()=>setView("list")} variant={view==="list"?"primary":"ghost"} style={{ borderRadius:0, borderRight:"1px solid transparent" }}>☰ Lista</Button>
+              <Button onClick={()=>setView("calendar")} variant={view==="calendar"?"primary":"ghost"} style={{ borderRadius:0 }}>⊟ Calendário</Button>
             </div>
-            <button style={{ ...s.btnPrimary, flex:isMobile?1:"unset" }} onClick={()=>setShowModal(true)}>+ Novo agendamento</button>
+            <Button onClick={()=>setShowModal(true)} fullWidth={isMobile}>+ Novo agendamento</Button>
           </div>
         </header>
 
         {view === "list" ? (
           <>
             <div style={{ display:"flex", gap:8, marginBottom:12, overflowX:"auto", flexWrap:isMobile?"nowrap":"wrap", paddingBottom:isMobile?4:0 }}>
-              <button style={filterStatus==="all"?{...s.filterBtn,...s.filterBtnActive,flexShrink:0}:{...s.filterBtn,flexShrink:0}} onClick={()=>setFilterStatus("all")}>
+              <Button 
+                onClick={()=>setFilterStatus("all")} 
+                variant={filterStatus==="all"?"primary":"secondary"} 
+                style={{ flexShrink:0, padding:"6px 14px" }}
+              >
                 Todos <span style={s.filterCount}>{appointments.length}</span>
-              </button>
+              </Button>
               {Object.entries(STATUS_CONFIG).map(([key,cfg])=>{
                 const count = appointments.filter(a=>a.status===key).length
                 return (
-                  <button key={key}
-                    style={filterStatus===key?{...s.filterBtn,...s.filterBtnActive,borderColor:cfg.color,color:cfg.color,flexShrink:0}:{...s.filterBtn,flexShrink:0}}
-                    onClick={()=>setFilterStatus(key)}>
+                  <Button key={key}
+                    onClick={()=>setFilterStatus(key)}
+                    variant={filterStatus===key?"primary":"secondary"}
+                    style={{ 
+                      flexShrink:0, 
+                      padding:"6px 14px",
+                      color: filterStatus===key ? cfg.color : undefined,
+                      background: filterStatus===key ? cfg.bg : undefined,
+                      border: filterStatus===key ? `1px solid ${cfg.border}` : undefined
+                    }}
+                  >
                     {cfg.label} <span style={s.filterCount}>{count}</span>
-                  </button>
+                  </Button>
                 )
               })}
             </div>
 
             {/* Campo de busca */}
             <div style={{ position:"relative", marginBottom:16 }}>
-              <span style={{ position:"absolute", left:12, top:"50%", transform:"translateY(-50%)", fontSize:14, color:"#475569", pointerEvents:"none" }}>🔍</span>
-              <input
+              <span style={{ position:"absolute", left:12, top:"50%", transform:"translateY(-50%)", fontSize:14, color:t.textGhost, pointerEvents:"none" }}>🔍</span>
+              <Input
                 type="text"
                 placeholder="Buscar por paciente, data (15/03), status (cancelado) ou profissional..."
                 value={query}
                 onChange={e=>handleQueryChange(e.target.value)}
-                style={{ background:t.bgCard, border:`1px solid ${t.border}`, borderRadius:8, padding:"10px 12px 10px 36px", fontSize:14, color:t.textPrimary, outline:"none", width:"100%", boxSizing:"border-box" }}
-                onFocus={e=>e.target.style.borderColor=t.accent}
-                onBlur={e=>e.target.style.borderColor=t.border}
+                style={{ paddingLeft:36 }}
               />
-              {searching && <span style={{ position:"absolute",right:12,top:"50%",transform:"translateY(-50%)",fontSize:11,color:"#475569" }}>buscando...</span>}
+              {searching && <span style={{ position:"absolute",right:12,top:"50%",transform:"translateY(-50%)",fontSize:11,color:t.textGhost }}>buscando...</span>}
               {query && !searching && (
-                <button onClick={()=>{setQuery("");setRemoteAppts(null)}} style={{ position:"absolute",right:8,top:"50%",transform:"translateY(-50%)",background:"transparent",border:"none",color:"#475569",cursor:"pointer",fontSize:16 }}>✕</button>
+                <button onClick={()=>{setQuery("");setRemoteAppts(null)}} style={{ position:"absolute",right:8,top:"50%",transform:"translateY(-50%)",background:"transparent",border:"none",color:t.textGhost,cursor:"pointer",fontSize:16 }}>✕</button>
               )}
             </div>
 
@@ -510,10 +502,10 @@ export default function Appointments() {
                       {staffMap[a.staff_id] && <span style={{ fontSize:13, color:t.textGhost }}>👤 {staffMap[a.staff_id].name}</span>}
                       <div style={{ display:"flex", gap:8, marginTop:4 }}>
                         <select value={a.status} disabled={changingStatus===a.id} onChange={e=>handleStatusChange(a.id,e.target.value)}
-                          style={{ ...s.statusSelect, flex:1, color:STATUS_CONFIG[a.status]?.color??"#64748b", opacity:changingStatus===a.id?0.5:1 }}>
+                          style={{ background:t.bgInset, border:`1px solid ${t.border}`, borderRadius:6, padding:"4px 8px", fontSize:12, fontWeight:700, cursor:"pointer", outline:"none", flex:1, color:STATUS_CONFIG[a.status]?.color??"#64748b", opacity:changingStatus===a.id?0.5:1 }}>
                           {Object.entries(STATUS_CONFIG).map(([k,cfg])=><option key={k} value={k}>{cfg.label}</option>)}
                         </select>
-                        <button style={s.btnDelete} onClick={()=>handleDelete(a.id)}>Remover</button>
+                        <Button onClick={()=>handleDelete(a.id)} size="sm" variant="ghost">Remover</Button>
                       </div>
                     </div>
                   ))}
@@ -540,12 +532,12 @@ export default function Appointments() {
                         <td style={s.td}><span style={s.tdMuted}>{staffMap[a.staff_id]?.name ?? "—"}</span></td>
                         <td style={s.td}>
                           <select value={a.status} disabled={changingStatus===a.id} onChange={e=>handleStatusChange(a.id,e.target.value)}
-                            style={{ ...s.statusSelect, color:STATUS_CONFIG[a.status]?.color??"#64748b", opacity:changingStatus===a.id?0.5:1 }}>
+                            style={{ background:t.bgInset, border:`1px solid ${t.border}`, borderRadius:6, padding:"4px 8px", fontSize:12, fontWeight:700, cursor:"pointer", outline:"none", color:STATUS_CONFIG[a.status]?.color??"#64748b", opacity:changingStatus===a.id?0.5:1 }}>
                             {Object.entries(STATUS_CONFIG).map(([k,cfg])=><option key={k} value={k}>{cfg.label}</option>)}
                           </select>
                         </td>
                         <td style={{ ...s.td, textAlign:"right" }}>
-                          <button style={s.btnDelete} onClick={()=>handleDelete(a.id)}>Remover</button>
+                          <Button onClick={()=>handleDelete(a.id)} size="sm" variant="ghost">Remover</Button>
                         </td>
                       </tr>
                     ))}

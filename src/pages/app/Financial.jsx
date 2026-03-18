@@ -4,6 +4,8 @@ import { useAuth } from "../../context/AuthContext"
 import { useTheme } from "../../context/ThemeContext"
 import AppLayout from "../AppLayout"
 import RevenueChart from "../../components/financial/RevenueChart"
+import { Button, Input } from "../../components/ui"
+import { STATUS_COLORS, getStatusConfig } from "../../config/statusColors"
 
 // ─── Constantes ───────────────────────────────────────────────────────────────
 
@@ -15,11 +17,7 @@ const PAYMENT_METHOD = {
   other:       { label: "Outro",        icon: "📋" },
 }
 
-const STATUS_CONFIG = {
-  paid:      { label: "Pago",      color: "#22c55e", bg: "#052e16", border: "#166534" },
-  pending:   { label: "Pendente",  color: "#f59e0b", bg: "#1c1107", border: "#92400e" },
-  cancelled: { label: "Cancelado", color: "#ef4444", bg: "#450a0a", border: "#7f1d1d" },
-}
+const STATUS_CONFIG = STATUS_COLORS
 
 const PERIOD_OPTIONS = [
   { label: "Esta semana",     value: "this_week"  },
@@ -76,15 +74,15 @@ function useIsMobile() {
 
 // ─── Toast ────────────────────────────────────────────────────────────────────
 
-function Toast({ toast }) {
+function Toast({ toast, t }) {
   if (!toast) return null
   const ok = toast.type === "success"
   return (
     <div style={{ position:"fixed", bottom:24, right:24, zIndex:999, borderRadius:10, padding:"12px 20px",
       fontSize:14, fontWeight:600, boxShadow:"0 8px 24px rgba(0,0,0,0.3)",
-      background: ok ? "#052e16" : "#450a0a",
-      border: `1px solid ${ok ? "#166534" : "#7f1d1d"}`,
-      color: ok ? "#86efac" : "#fca5a5",
+      background: ok ? t.successBg : t.errorBg,
+      border: `1px solid ${ok ? t.successBorder : t.errorBorder}`,
+      color: ok ? t.successText : t.errorText,
     }}>
       {ok ? "✓" : "✕"} {toast.msg}
     </div>
@@ -107,8 +105,6 @@ function PaymentModal({ onClose, onSave, clinicId }) {
   const [pOpen,       setPOpen]       = useState(false)
   const [loading,     setLoading]     = useState(false)
   const [error,       setError]       = useState(null)
-
-  const inp = { background:t.bgCard, border:`1px solid ${t.border}`, borderRadius:8, padding:"10px 12px", fontSize:14, color:t.textPrimary, outline:"none", width:"100%", boxSizing:"border-box", transition:"border-color 0.2s" }
 
   async function searchPatients(q) {
     setPSearch(q); setPatientId(""); setPatientName("")
@@ -152,9 +148,9 @@ function PaymentModal({ onClose, onSave, clinicId }) {
           {/* Paciente */}
           <div style={{ position:"relative" }}>
             <label style={{ fontSize:12, fontWeight:600, color:t.textFaint, display:"block", marginBottom:6 }}>Paciente</label>
-            <input type="text" placeholder="Buscar paciente (opcional)..." value={patientId ? patientName : pSearch}
-              onChange={e=>searchPatients(e.target.value)} style={inp}
-              onFocus={e=>e.target.style.borderColor=t.accent} onBlur={e=>setTimeout(()=>setPOpen(false),150)} />
+            <Input type="text" placeholder="Buscar paciente (opcional)..." value={patientId ? patientName : pSearch}
+              onChange={e=>searchPatients(e.target.value)}
+              onBlur={e=>setTimeout(()=>setPOpen(false),150)} />
             {pOpen && patients.length > 0 && (
               <div style={{ position:"absolute", top:"calc(100% + 2px)", left:0, right:0, background:t.bgCard, border:`1px solid ${t.borderStrong}`, borderRadius:8, zIndex:50, overflow:"hidden", boxShadow:"0 8px 24px rgba(0,0,0,0.4)" }}>
                 {patients.map(p=>(
@@ -171,13 +167,11 @@ function PaymentModal({ onClose, onSave, clinicId }) {
           <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 }}>
             <div>
               <label style={{ fontSize:12, fontWeight:600, color:t.textFaint, display:"block", marginBottom:6 }}>Valor (R$) *</label>
-              <input type="number" placeholder="0,00" value={amount} onChange={e=>setAmount(e.target.value)} style={inp} min="0" step="0.01"
-                onFocus={e=>e.target.style.borderColor=t.accent} onBlur={e=>e.target.style.borderColor=t.border} />
+              <Input type="number" placeholder="0,00" value={amount} onChange={e=>setAmount(e.target.value)} min="0" step="0.01" />
             </div>
             <div>
               <label style={{ fontSize:12, fontWeight:600, color:t.textFaint, display:"block", marginBottom:6 }}>Desconto (R$)</label>
-              <input type="number" placeholder="0,00" value={discount} onChange={e=>setDiscount(e.target.value)} style={inp} min="0" step="0.01"
-                onFocus={e=>e.target.style.borderColor=t.accent} onBlur={e=>e.target.style.borderColor=t.border} />
+              <Input type="number" placeholder="0,00" value={discount} onChange={e=>setDiscount(e.target.value)} min="0" step="0.01" />
             </div>
           </div>
 
@@ -185,7 +179,7 @@ function PaymentModal({ onClose, onSave, clinicId }) {
           {amount && (
             <div style={{ background:t.bgInset, borderRadius:8, padding:"10px 14px", display:"flex", justifyContent:"space-between", alignItems:"center" }}>
               <span style={{ fontSize:13, color:t.textGhost }}>Total a receber</span>
-              <span style={{ fontSize:18, fontWeight:800, color:"#22c55e" }}>{formatCurrency(finalAmount)}</span>
+              <span style={{ fontSize:18, fontWeight:800, color:t.successText }}>{formatCurrency(finalAmount)}</span>
             </div>
           )}
 
@@ -227,18 +221,18 @@ function PaymentModal({ onClose, onSave, clinicId }) {
           <div>
             <label style={{ fontSize:12, fontWeight:600, color:t.textFaint, display:"block", marginBottom:6 }}>Descrição</label>
             <textarea placeholder="Ex: Consulta de retorno, limpeza..." value={description} onChange={e=>setDescription(e.target.value)} rows={2}
-              style={{ ...inp, resize:"vertical", lineHeight:1.6 }}
+              style={{ background:t.bgCard, border:`1px solid ${t.border}`, borderRadius:8, padding:"10px 12px", fontSize:14, color:t.textPrimary, outline:"none", width:"100%", boxSizing:"border-box", transition:"border-color 0.2s", resize:"vertical", lineHeight:1.6 }}
               onFocus={e=>e.target.style.borderColor=t.accent} onBlur={e=>e.target.style.borderColor=t.border} />
           </div>
 
-          {error && <div style={{ background:"#450a0a", border:"1px solid #7f1d1d", color:"#fca5a5", borderRadius:8, padding:"10px 14px", fontSize:13 }}>{error}</div>}
+          {error && <div style={{ background:t.errorBg, border:`1px solid ${t.errorBorder}`, color:t.errorText, borderRadius:8, padding:"10px 14px", fontSize:13 }}>{error}</div>}
         </div>
 
         <div style={{ display:"flex", justifyContent:"flex-end", gap:10, padding:"16px 24px", borderTop:`1px solid ${t.border}` }}>
-          <button onClick={onClose} style={{ background:"transparent", border:`1px solid ${t.border}`, color:t.textMuted, borderRadius:8, padding:"10px 18px", fontSize:14, cursor:"pointer" }}>Cancelar</button>
-          <button onClick={handleSave} disabled={loading||!amount} style={{ background:t.accent, border:"none", color:"#fff", borderRadius:8, padding:"10px 24px", fontSize:14, fontWeight:700, cursor:"pointer", opacity:loading||!amount?0.5:1 }}>
+          <Button onClick={onClose} variant="ghost">Cancelar</Button>
+          <Button onClick={handleSave} disabled={loading||!amount} loading={loading}>
             {loading ? "Salvando..." : "Salvar lançamento"}
-          </button>
+          </Button>
         </div>
       </div>
     </div>
@@ -355,7 +349,7 @@ export default function Financial() {
 
   return (
     <AppLayout>
-      <Toast toast={toast} />
+      <Toast toast={toast} t={t} />
 
       {showModal && (
         <PaymentModal clinicId={clinicId} onClose={()=>setShowModal(false)} onSave={()=>{ setShowModal(false); fetchPayments(); showToast("Lançamento salvo!") }} />
@@ -377,17 +371,17 @@ export default function Financial() {
             }}>
               {PERIOD_OPTIONS.map(o=><option key={o.value} value={o.value}>{o.label}</option>)}
             </select>
-            <button onClick={()=>setShowModal(true)} style={{ background:t.accent, border:"none", color:"#fff", borderRadius:8, padding:"10px 20px", fontSize:14, fontWeight:700, cursor:"pointer", flex:isMobile?1:"unset" }}>
+            <Button onClick={()=>setShowModal(true)} fullWidth={isMobile}>
               + Novo lançamento
-            </button>
+            </Button>
           </div>
         </header>
 
         {/* Cards de métricas */}
         <div style={{ display:"grid", gridTemplateColumns: isMobile?"1fr 1fr":"repeat(4,1fr)", gap: isMobile?8:16, marginBottom: isMobile?16:24 }}>
-          <MetricCard label="Total recebido"   value={formatCurrency(totalPaid)} sub={`${countPaid} pagamentos`} accent="#22c55e" t={t} isMobile={isMobile} />
-          <MetricCard label="A receber"        value={formatCurrency(totalPend)} sub="pendentes"                 accent="#f59e0b" t={t} isMobile={isMobile} />
-          <MetricCard label="Total do período" value={formatCurrency(totalAll)}  sub="incl. pendentes"           accent="#3b82f6" t={t} isMobile={isMobile} />
+          <MetricCard label="Total recebido"   value={formatCurrency(totalPaid)} sub={`${countPaid} pagamentos`} accent={STATUS_COLORS.paid.color} t={t} isMobile={isMobile} />
+          <MetricCard label="A receber"        value={formatCurrency(totalPend)} sub="pendentes"                 accent={STATUS_COLORS.pending.color} t={t} isMobile={isMobile} />
+          <MetricCard label="Total do período" value={formatCurrency(totalAll)}  sub="incl. pendentes"           accent={t.accent} t={t} isMobile={isMobile} />
           <MetricCard label="Lançamentos"      value={payments.length}           sub="no período"                accent="#8b5cf6" t={t} isMobile={isMobile} />
         </div>
 
@@ -426,14 +420,12 @@ export default function Financial() {
           {/* Campo de busca */}
           <div style={{ position:"relative", marginBottom:16 }}>
             <span style={{ position:"absolute", left:12, top:"50%", transform:"translateY(-50%)", fontSize:14, color:t.textGhost, pointerEvents:"none" }}>🔍</span>
-            <input
+            <Input
               type="text"
               placeholder="Buscar por paciente ou descrição..."
               value={query}
               onChange={e=>setQuery(e.target.value)}
-              style={{ background:t.bgInset, border:`1px solid ${t.border}`, borderRadius:8, padding:"10px 12px 10px 36px", fontSize:14, color:t.textPrimary, outline:"none", width:"100%", boxSizing:"border-box" }}
-              onFocus={e=>e.target.style.borderColor=t.accent}
-              onBlur={e=>e.target.style.borderColor=t.border}
+              style={{ paddingLeft:36 }}
             />
             {query && (
               <button onClick={()=>setQuery("")} style={{ position:"absolute",right:8,top:"50%",transform:"translateY(-50%)",background:"transparent",border:"none",color:t.textGhost,cursor:"pointer",fontSize:16 }}>✕</button>
@@ -472,9 +464,11 @@ export default function Financial() {
                       <span style={{ fontSize:12, color:t.textDisabled }}>{met?.icon} {met?.label} · {formatDate(p.created_at)}</span>
                       <div style={{ display:"flex", gap:6 }}>
                         {p.status==="pending" && (
-                          <button onClick={()=>handleStatusChange(p.id,"paid")} style={{ background:"#052e16", border:"1px solid #166534", color:"#86efac", borderRadius:6, padding:"4px 10px", fontSize:11, fontWeight:700, cursor:"pointer" }}>Marcar pago</button>
+                          <Button onClick={()=>handleStatusChange(p.id,"paid")} size="sm" style={{ background:t.successBg, border:`1px solid ${t.successBorder}`, color:t.successText }}>
+                            Marcar pago
+                          </Button>
                         )}
-                        <button onClick={()=>handleDelete(p.id)} style={{ background:"transparent", border:`1px solid ${t.borderStrong}`, color:t.textFaint, borderRadius:6, padding:"4px 10px", fontSize:11, cursor:"pointer" }}>✕</button>
+                        <Button onClick={()=>handleDelete(p.id)} size="sm" variant="ghost">✕</Button>
                       </div>
                     </div>
                   </div>
@@ -519,9 +513,11 @@ export default function Financial() {
                       <td style={{ padding:"14px 12px", textAlign:"right" }}>
                         <div style={{ display:"flex", gap:6, justifyContent:"flex-end" }}>
                           {p.status==="pending" && (
-                            <button onClick={()=>handleStatusChange(p.id,"paid")} style={{ background:"#052e16", border:"1px solid #166534", color:"#86efac", borderRadius:6, padding:"5px 12px", fontSize:12, fontWeight:700, cursor:"pointer", whiteSpace:"nowrap" }}>✓ Pago</button>
+                            <Button onClick={()=>handleStatusChange(p.id,"paid")} size="sm" style={{ background:t.successBg, border:`1px solid ${t.successBorder}`, color:t.successText }}>
+                              ✓ Pago
+                            </Button>
                           )}
-                          <button onClick={()=>handleDelete(p.id)} style={{ background:"transparent", border:`1px solid ${t.borderStrong}`, color:t.textFaint, borderRadius:6, padding:"5px 12px", fontSize:12, cursor:"pointer" }}>Remover</button>
+                          <Button onClick={()=>handleDelete(p.id)} size="sm" variant="ghost">Remover</Button>
                         </div>
                       </td>
                     </tr>

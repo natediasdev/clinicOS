@@ -3,6 +3,7 @@ import { supabase } from "../../supabaseClient"
 import { useAuth } from "../../context/AuthContext"
 import { useTheme } from "../../context/ThemeContext"
 import AppLayout from "../AppLayout"
+import { STATUS_COLORS, getStatusConfig } from "../../config/statusColors"
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell, Legend,
@@ -31,12 +32,7 @@ function useIsMobile() {
   return v
 }
 
-const STATUS_STYLE = {
-  scheduled: { label:"Agendado",  color:"#3b82f6", bg:"#0c1f3a" },
-  completed: { label:"Concluído", color:"#22c55e", bg:"#052e16" },
-  cancelled: { label:"Cancelado", color:"#ef4444", bg:"#450a0a" },
-  no_show:   { label:"Não veio",  color:"#f59e0b", bg:"#1c1107" },
-}
+const STATUS_STYLE = STATUS_COLORS
 const DAYS = ["Dom","Seg","Ter","Qua","Qui","Sex","Sáb"]
 
 // ─── Data fetching ────────────────────────────────────────────────────────────
@@ -168,11 +164,11 @@ function useDashboardData(clinicId) {
 
 // ─── Tooltip customizado ──────────────────────────────────────────────────────
 
-function CustomTooltip({ active, payload, label, currency }) {
+function CustomTooltip({ active, payload, label, currency, t }) {
   if (!active||!payload?.length) return null
   return (
-    <div style={{ background:"#0f172a", border:"1px solid #1e293b", borderRadius:8, padding:"10px 14px", fontSize:13, fontFamily:"'DM Sans',sans-serif" }}>
-      <p style={{ color:"#64748b", margin:"0 0 6px", fontWeight:600 }}>{label}</p>
+    <div style={{ background:t.bgCard, border:`1px solid ${t.border}`, borderRadius:8, padding:"10px 14px", fontSize:13, fontFamily:"'DM Sans',sans-serif" }}>
+      <p style={{ color:t.textMuted, margin:"0 0 6px", fontWeight:600 }}>{label}</p>
       {payload.map((p,i)=>(
         <p key={i} style={{ color:p.color, margin:"2px 0", fontWeight:700 }}>
           {p.name}: {currency ? formatCurrency(p.value) : p.value}
@@ -241,6 +237,9 @@ export default function Dashboard() {
   const { t }  = useTheme()
   const isMobile = useIsMobile()
   const d = useDashboardData(clinicId)
+  
+  // Theme-aware wrapper for CustomTooltip
+  const ThemedTooltip = (props) => <CustomTooltip {...props} t={t} />
 
   const gridCols = isMobile ? "1fr" : "repeat(2, 1fr)"
 
@@ -257,7 +256,7 @@ export default function Dashboard() {
         </header>
 
         {d.error && (
-          <div style={{ background:"#450a0a", color:"#fca5a5", border:"1px solid #7f1d1d", borderRadius:8, padding:"10px 16px", fontSize:13, marginBottom:20 }}>
+          <div style={{ background:t.errorBg, color:t.errorText, border:`1px solid ${t.errorBorder}`, borderRadius:8, padding:"10px 16px", fontSize:13, marginBottom:20 }}>
             ⚠️ {d.error}
           </div>
         )}
@@ -287,7 +286,7 @@ export default function Dashboard() {
                     <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" vertical={false}/>
                     <XAxis dataKey="semana" tick={{ fill:"#475569", fontSize:11 }} axisLine={false} tickLine={false}/>
                     <YAxis tick={{ fill:"#475569", fontSize:11 }} axisLine={false} tickLine={false} tickFormatter={v=>`R$${(v/1000).toFixed(0)}k`}/>
-                    <Tooltip content={<CustomTooltip currency/>}/>
+                    <Tooltip content={<ThemedTooltip currency/>}/>
                     <Bar dataKey="valor" name="Faturamento" fill="#3b82f6" radius={[4,4,0,0]}>
                       {d.revenueByWeek.map((_,i)=>(
                         <Cell key={i} fill={i===d.revenueByWeek.length-1?"#60a5fa":"#3b82f6"}/>
@@ -310,8 +309,8 @@ export default function Dashboard() {
                     <Pie data={d.statusPie} cx="50%" cy="45%" innerRadius={50} outerRadius={80} paddingAngle={3} dataKey="value">
                       {d.statusPie.map((s,i)=><Cell key={i} fill={s.color}/>)}
                     </Pie>
-                    <Tooltip content={<CustomTooltip/>}/>
-                    <Legend iconType="circle" iconSize={8} formatter={v=><span style={{ color:"#64748b", fontSize:12 }}>{v}</span>}/>
+                    <Tooltip content={<ThemedTooltip/>}/>
+                    <Legend iconType="circle" iconSize={8} formatter={v=><span style={{ color:t.textMuted, fontSize:12 }}>{v}</span>}/>
                   </PieChart>
                 </ResponsiveContainer>
               )}
@@ -329,8 +328,8 @@ export default function Dashboard() {
                 <BarChart data={d.occupancyByDay} margin={{ top:4, right:4, left:-16, bottom:0 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" vertical={false}/>
                   <XAxis dataKey="dia" tick={{ fill:"#475569", fontSize:12 }} axisLine={false} tickLine={false}/>
-                  <YAxis tick={{ fill:"#475569", fontSize:11 }} axisLine={false} tickLine={false}/>
-                  <Tooltip content={<CustomTooltip/>}/>
+                  <YAxis tick={{ fill:t.textMuted, fontSize:11 }} axisLine={false} tickLine={false}/>
+                  <Tooltip content={<ThemedTooltip/>}/>
                   <Bar dataKey="concluido" name="Concluído" stackId="a" fill="#22c55e" radius={[0,0,0,0]}/>
                   <Bar dataKey="falta"     name="Não veio"  stackId="a" fill="#f59e0b" radius={[0,0,0,0]}/>
                   <Bar dataKey="total"     name="Total"     fill="#3b82f620" radius={[4,4,0,0]}/>
@@ -355,8 +354,8 @@ export default function Dashboard() {
                     </defs>
                     <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" vertical={false}/>
                     <XAxis dataKey="mes" tick={{ fill:"#475569", fontSize:11 }} axisLine={false} tickLine={false}/>
-                    <YAxis tick={{ fill:"#475569", fontSize:11 }} axisLine={false} tickLine={false}/>
-                    <Tooltip content={<CustomTooltip/>}/>
+                    <YAxis tick={{ fill:t.textMuted, fontSize:11 }} axisLine={false} tickLine={false}/>
+                    <Tooltip content={<ThemedTooltip/>}/>
                     <Area type="monotone" dataKey="total" name="Pacientes" stroke="#3b82f6" strokeWidth={2} fill="url(#pgGrad)" dot={{ fill:"#3b82f6", r:3 }}/>
                   </AreaChart>
                 </ResponsiveContainer>
@@ -381,7 +380,7 @@ export default function Dashboard() {
               <div style={{ height:10, background:t.bgInset, borderRadius:99, overflow:"hidden", marginBottom:12 }}>
                 <div style={{ height:"100%", borderRadius:99, transition:"width .6s ease",
                   width:`${d.weekOccupancy??0}%`,
-                  background:(d.weekOccupancy??0)>=80?"#22c55e":(d.weekOccupancy??0)>=50?"#f59e0b":"#64748b"
+                  background:(d.weekOccupancy??0)>=80?STATUS_COLORS.completed.color:(d.weekOccupancy??0)>=50?STATUS_COLORS.no_show.color:t.textGhost
                 }}/>
               </div>
               <p style={{ fontSize:12, color:t.textGhost, margin:0 }}>
