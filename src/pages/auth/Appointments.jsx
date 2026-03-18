@@ -436,36 +436,46 @@ export default function Appointments() {
         {view === "list" ? (
           <>
             <div style={{ display:"flex", gap:8, marginBottom:12, overflowX:"auto", flexWrap:isMobile?"nowrap":"wrap", paddingBottom:isMobile?4:0 }}>
-              <Button 
-                onClick={()=>setFilterStatus("all")} 
-                variant={filterStatus==="all"?"secondary":"ghost"} 
-                style={{ 
-                  flexShrink:0, 
-                  padding:"6px 14px",
-                  background: filterStatus==="all" ? t.bgCard : undefined,
+              <button
+                onClick={()=>setFilterStatus("all")}
+                style={{
+                  flexShrink: 0,
+                  padding: "6px 14px",
+                  fontSize: 13,
+                  fontWeight: 600,
+                  cursor: "pointer",
+                  borderRadius: 8,
+                  fontFamily: "inherit",
+                  color: filterStatus==="all" ? t.accent : t.textFaint,
+                  background: filterStatus==="all" ? t.bgCard : "transparent",
                   border: `1px solid ${filterStatus==="all" ? t.accent : t.border}`,
-                  color: filterStatus==="all" ? t.accent : undefined
+                  transition: "all .15s",
                 }}
               >
                 Todos <span style={s.filterCount}>{appointments.length}</span>
-              </Button>
+              </button>
               {Object.entries(STATUS_CONFIG).map(([key,cfg])=>{
                 const count = appointments.filter(a=>a.status===key).length
                 const isActive = filterStatus===key
                 return (
-                  <Button key={key}
+                  <button key={key}
                     onClick={()=>setFilterStatus(key)}
-                    variant={isActive?"secondary":"ghost"}
                     style={{ 
-                      flexShrink:0, 
+                      flexShrink:0,
                       padding:"6px 14px",
-                      color: cfg.color,
-                      background: isActive ? cfg.bg : undefined,
-                      border: `1px solid ${isActive ? cfg.border : t.border}`
+                      fontSize: 13,
+                      fontWeight: 600,
+                      cursor: "pointer",
+                      borderRadius: 8,
+                      fontFamily: "inherit",
+                      color: isActive ? cfg.color : t.textFaint,
+                      background: isActive ? cfg.bg : "transparent",
+                      border: `1px solid ${isActive ? cfg.color + "55" : t.border}`,
+                      transition: "all .15s",
                     }}
                   >
                     {cfg.label} <span style={s.filterCount}>{count}</span>
-                  </Button>
+                  </button>
                 )
               })}
             </div>
