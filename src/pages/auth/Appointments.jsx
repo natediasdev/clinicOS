@@ -8,7 +8,11 @@ import { STATUS_COLORS, getStatusConfig } from "../../config/statusColors"
 
 // ─── Constantes ───────────────────────────────────────────────────────────────
 
-const STATUS_CONFIG = STATUS_COLORS
+// Apenas status de agendamento — paid/pending pertencem ao Financeiro
+const APPOINTMENT_STATUSES = ["scheduled", "completed", "cancelled", "no_show"]
+const STATUS_CONFIG = Object.fromEntries(
+  APPOINTMENT_STATUSES.map(k => [k, STATUS_COLORS[k]])
+)
 
 const DAYS_PT   = ["Dom","Seg","Ter","Qua","Qui","Sex","Sáb"]
 const MONTHS_PT = ["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"]
