@@ -19,22 +19,22 @@ const formatCurrency = (value) => {
 };
 
 // Tooltip customizado
-const CustomTooltip = ({ active, payload, label }) => {
+const CustomTooltip = ({ active, payload, label, theme }) => {
   if (!active || !payload?.length) return null;
   
   return (
     <div style={{
-      background: '#0f172a',
-      border: '1px solid #1e293b',
+      background: theme?.bgCard || '#0f172a',
+      border: `1px solid ${theme?.border || '#1e293b'}`,
       borderRadius: 8,
       padding: '10px 14px',
       fontSize: 13,
       fontFamily: "'DM Sans', sans-serif",
     }}>
-      <p style={{ color: '#64748b', margin: '0 0 6px', fontWeight: 600 }}>
+      <p style={{ color: theme?.textMuted || '#64748b', margin: '0 0 6px', fontWeight: 600 }}>
         {label}
       </p>
-      <p style={{ color: '#3b82f6', margin: 0, fontWeight: 700 }}>
+      <p style={{ color: theme?.accent || '#3b82f6', margin: 0, fontWeight: 700 }}>
         {formatCurrency(payload[0].value)}
       </p>
     </div>
@@ -76,32 +76,32 @@ export default function RevenueChart({ data, loading, theme }) {
         <AreaChart data={data} margin={{ top: 4, right: 4, left: -16, bottom: 0 }}>
           <defs>
             <linearGradient id="revenueGradient" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.25} />
-              <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
+              <stop offset="5%" stopColor={theme?.accent || '#3b82f6'} stopOpacity={0.25} />
+              <stop offset="95%" stopColor={theme?.accent || '#3b82f6'} stopOpacity={0} />
             </linearGradient>
           </defs>
-          <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" vertical={false} />
+          <CartesianGrid strokeDasharray="3 3" stroke={theme?.border || '#1e293b'} vertical={false} />
           <XAxis
             dataKey="semana"
-            tick={{ fill: '#475569', fontSize: 11 }}
+            tick={{ fill: theme?.textMuted || '#475569', fontSize: 11 }}
             axisLine={false}
             tickLine={false}
           />
           <YAxis
-            tick={{ fill: '#475569', fontSize: 11 }}
+            tick={{ fill: theme?.textMuted || '#475569', fontSize: 11 }}
             axisLine={false}
             tickLine={false}
             tickFormatter={(v) => `R$${(v / 1000).toFixed(0)}k`}
           />
-          <Tooltip content={<CustomTooltip />} />
+          <Tooltip content={<CustomTooltip theme={theme} />} />
           <Area
             type="monotone"
             dataKey="valor"
             name="Faturamento"
-            stroke="#3b82f6"
+            stroke={theme?.accent || '#3b82f6'}
             strokeWidth={2}
             fill="url(#revenueGradient)"
-            dot={{ fill: '#3b82f6', r: 3 }}
+            dot={{ fill: theme?.accent || '#3b82f6', r: 3 }}
           />
         </AreaChart>
       </ResponsiveContainer>

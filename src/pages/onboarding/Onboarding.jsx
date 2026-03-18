@@ -3,6 +3,7 @@ import { supabase } from "../../supabaseClient"
 import { useAuth } from "../../context/AuthContext"
 import { useTheme } from "../../context/ThemeContext"
 import { useNavigate } from "react-router-dom"
+import { Button, Input, Badge } from "../../components/ui"
 
 const STEPS = [
   { id:"clinic",      icon:"🏥", title:"Dê um nome à sua clínica",       desc:"Este nome aparecerá no sistema e será visto pela sua equipe." },
@@ -16,7 +17,6 @@ function StepClinic({ onNext, t }) {
   const [name, setName]       = useState("")
   const [loading, setLoading] = useState(false)
   const [error, setError]     = useState(null)
-  const inp = makeInp(t)
 
   async function handleSubmit() {
     if (!name.trim()) return
@@ -30,16 +30,27 @@ function StepClinic({ onNext, t }) {
 
   return (
     <div style={stepBody}>
-      <div style={field}>
-        <label style={{ fontSize:13, fontWeight:600, color:t.textMuted }}>Nome da clínica *</label>
-        <input type="text" placeholder="Ex: Clínica Odonto Saúde" value={name} autoFocus
-          onChange={e=>setName(e.target.value)} onKeyDown={e=>e.key==="Enter"&&handleSubmit()} style={inp}
-          onFocus={e=>e.target.style.borderColor="#3b82f6"} onBlur={e=>e.target.style.borderColor=t.border}/>
-      </div>
+        <div style={field}>
+          <label style={{ fontSize:13, fontWeight:600, color:t.textMuted }}>Nome da clínica *</label>
+          <Input 
+            type="text" 
+            placeholder="Ex: Clínica Odonto Saúde" 
+            value={name} 
+            autoFocus
+            onChange={e=>setName(e.target.value)} 
+            onKeyDown={e=>e.key==="Enter"&&handleSubmit()}
+          />
+        </div>
       {error && <div style={errBox(t)}>{error}</div>}
-      <button onClick={handleSubmit} disabled={loading||!name.trim()} style={{ ...btnPrimary, opacity:loading||!name.trim()?0.5:1 }}>
+      <Button 
+        onClick={handleSubmit} 
+        disabled={loading||!name.trim()} 
+        variant="primary" 
+        loading={loading}
+        fullWidth
+      >
         {loading ? "Salvando..." : "Continuar →"}
-      </button>
+      </Button>
     </div>
   )
 }
@@ -50,7 +61,6 @@ function StepPatient({ onNext, onSkip, t }) {
   const [email, setEmail]     = useState("")
   const [loading, setLoading] = useState(false)
   const [error, setError]     = useState(null)
-  const inp = makeInp(t)
 
   async function handleSubmit() {
     if (!name.trim()) return
@@ -66,26 +76,43 @@ function StepPatient({ onNext, onSkip, t }) {
       <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 }}>
         <div style={field}>
           <label style={{ fontSize:13, fontWeight:600, color:t.textMuted }}>Nome *</label>
-          <input type="text" placeholder="Nome completo" value={name} onChange={e=>setName(e.target.value)} style={inp}
-            onFocus={e=>e.target.style.borderColor="#3b82f6"} onBlur={e=>e.target.style.borderColor=t.border}/>
+          <Input 
+            type="text" 
+            placeholder="Nome completo" 
+            value={name} 
+            onChange={e=>setName(e.target.value)}
+          />
         </div>
         <div style={field}>
           <label style={{ fontSize:13, fontWeight:600, color:t.textMuted }}>Telefone</label>
-          <input type="text" placeholder="(00) 00000-0000" value={phone} onChange={e=>setPhone(e.target.value)} style={inp}
-            onFocus={e=>e.target.style.borderColor="#3b82f6"} onBlur={e=>e.target.style.borderColor=t.border}/>
+          <Input 
+            type="text" 
+            placeholder="(00) 00000-0000" 
+            value={phone} 
+            onChange={e=>setPhone(e.target.value)}
+          />
         </div>
       </div>
       <div style={field}>
         <label style={{ fontSize:13, fontWeight:600, color:t.textMuted }}>E-mail</label>
-        <input type="email" placeholder="paciente@email.com" value={email} onChange={e=>setEmail(e.target.value)} style={inp}
-          onFocus={e=>e.target.style.borderColor="#3b82f6"} onBlur={e=>e.target.style.borderColor=t.border}/>
+        <Input 
+          type="email" 
+          placeholder="paciente@email.com" 
+          value={email} 
+          onChange={e=>setEmail(e.target.value)}
+        />
       </div>
       {error && <div style={errBox(t)}>{error}</div>}
       <div style={{ display:"flex", gap:10, justifyContent:"flex-end" }}>
-        <button onClick={onSkip} style={btnGhost(t)}>Pular por agora</button>
-        <button onClick={handleSubmit} disabled={loading||!name.trim()} style={{ ...btnPrimary, width:"auto", opacity:loading||!name.trim()?0.5:1 }}>
+        <Button onClick={onSkip} variant="ghost">Pular por agora</Button>
+        <Button 
+          onClick={handleSubmit} 
+          disabled={loading||!name.trim()} 
+          variant="primary" 
+          loading={loading}
+        >
           {loading ? "Salvando..." : "Adicionar e continuar →"}
-        </button>
+        </Button>
       </div>
     </div>
   )
@@ -95,7 +122,6 @@ function StepAppointment({ onNext, onSkip, patient, clinicId, t }) {
   const [datetime, setDatetime] = useState("")
   const [loading, setLoading]   = useState(false)
   const [error, setError]       = useState(null)
-  const inp = makeInp(t)
 
   async function handleSubmit() {
     if (!datetime||!patient) return
@@ -110,7 +136,7 @@ function StepAppointment({ onNext, onSkip, patient, clinicId, t }) {
     <div style={stepBody}>
       {patient && (
         <div style={{ background:t.successBg, border:`1px solid ${t.successBorder}`, color:t.successText, borderRadius:8, padding:"8px 14px", fontSize:13, display:"flex", alignItems:"center", gap:8 }}>
-          <span style={{ width:8, height:8, borderRadius:"50%", background:"#22c55e", flexShrink:0, display:"inline-block" }}/>
+          <span style={{ width:8, height:8, borderRadius:"50%", background:t.successText, flexShrink:0, display:"inline-block" }}/>
           Agendando para: <strong style={{ color:t.textPrimary }}>{patient.name}</strong>
         </div>
       )}
@@ -121,16 +147,24 @@ function StepAppointment({ onNext, onSkip, patient, clinicId, t }) {
       )}
       <div style={field}>
         <label style={{ fontSize:13, fontWeight:600, color:t.textMuted }}>Data e hora *</label>
-        <input type="datetime-local" value={datetime} disabled={!patient}
-          onChange={e=>setDatetime(e.target.value)} style={{ ...inp, opacity:!patient?0.5:1 }}
-          onFocus={e=>e.target.style.borderColor="#3b82f6"} onBlur={e=>e.target.style.borderColor=t.border}/>
+        <Input 
+          type="datetime-local" 
+          value={datetime} 
+          disabled={!patient}
+          onChange={e=>setDatetime(e.target.value)}
+        />
       </div>
       {error && <div style={errBox(t)}>{error}</div>}
       <div style={{ display:"flex", gap:10, justifyContent:"flex-end" }}>
-        <button onClick={onSkip} style={btnGhost(t)}>Pular por agora</button>
-        <button onClick={handleSubmit} disabled={loading||!datetime||!patient} style={{ ...btnPrimary, width:"auto", opacity:loading||!datetime||!patient?0.5:1 }}>
+        <Button onClick={onSkip} variant="ghost">Pular por agora</Button>
+        <Button 
+          onClick={handleSubmit} 
+          disabled={loading||!datetime||!patient} 
+          variant="primary" 
+          loading={loading}
+        >
           {loading ? "Salvando..." : "Agendar e continuar →"}
-        </button>
+        </Button>
       </div>
     </div>
   )
@@ -147,7 +181,7 @@ function StepDone({ onFinish, t }) {
           </div>
         ))}
       </div>
-      <button onClick={onFinish} style={btnPrimary}>Ir para o Dashboard →</button>
+      <Button onClick={onFinish} variant="primary" fullWidth>Ir para o Dashboard →</Button>
     </div>
   )
 }
@@ -176,7 +210,7 @@ export default function Onboarding() {
 
         {/* Logo */}
         <div style={{ fontSize:22, fontWeight:800, color:t.textPrimary, letterSpacing:"-0.5px", marginBottom:36 }}>
-          Clinic<span style={{ color:"#3b82f6" }}>OS</span>
+          Clinic<span style={{ color:t.accent }}>OS</span>
         </div>
 
         {/* Progress */}
@@ -187,8 +221,8 @@ export default function Onboarding() {
                 width:32, height:32, borderRadius:"50%",
                 display:"flex", alignItems:"center", justifyContent:"center",
                 fontSize:12, fontWeight:700, color:"#fff",
-                background: i<=step ? "#3b82f6" : t.bgInset,
-                border: i===step ? "2px solid #60a5fa" : `2px solid ${t.border}`,
+                background: i<=step ? t.accent : t.bgInset,
+                border: i===step ? `2px solid #60a5fa` : `2px solid ${t.border}`,
                 transform: i===step ? "scale(1.2)" : "scale(1)",
                 transition:"all .3s",
                 flexShrink:0,
@@ -196,7 +230,7 @@ export default function Onboarding() {
                 {i<step ? "✓" : i+1}
               </div>
               {i<STEPS.length-1 && (
-                <div style={{ width:48, height:2, margin:"0 4px", background:i<step?"#3b82f6":t.border, transition:"background .3s" }}/>
+                <div style={{ width:48, height:2, margin:"0 4px", background:i<step? t.accent : t.border, transition:"background .3s" }}/>
               )}
             </div>
           ))}
@@ -221,7 +255,4 @@ export default function Onboarding() {
 // ─── Helpers de estilo reativos ao tema ───────────────────────────────────────
 const stepBody  = { width:"100%", display:"flex", flexDirection:"column", gap:16 }
 const field     = { display:"flex", flexDirection:"column", gap:6 }
-const btnPrimary = { background:"#3b82f6", border:"none", borderRadius:8, padding:"13px 24px", fontSize:15, fontWeight:700, color:"#fff", cursor:"pointer", width:"100%", fontFamily:"inherit" }
-const makeInp   = (t) => ({ background:t.bgInput, border:`1px solid ${t.border}`, borderRadius:8, padding:"11px 14px", fontSize:14, color:t.textPrimary, outline:"none", transition:"border-color .2s", width:"100%", boxSizing:"border-box", fontFamily:"inherit" })
-const btnGhost  = (t) => ({ background:"transparent", border:`1px solid ${t.border}`, color:t.textFaint, borderRadius:8, padding:"13px 20px", fontSize:14, cursor:"pointer", fontFamily:"inherit" })
 const errBox    = (t) => ({ background:t.errorBg, border:`1px solid ${t.errorBorder}`, color:t.errorText, borderRadius:8, padding:"10px 14px", fontSize:13 })

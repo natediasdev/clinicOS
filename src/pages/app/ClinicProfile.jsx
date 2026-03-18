@@ -3,6 +3,7 @@ import { supabase } from "../../supabaseClient"
 import { useAuth } from "../../context/AuthContext"
 import { useTheme } from "../../context/ThemeContext"
 import AppLayout from "../AppLayout"
+import { Button, Input, Card } from "../../components/ui"
 
 const PLAN_CONFIG = {
   free:    { label: "Free",    color: "#64748b", desc: "Até 50 pacientes · 1 usuário" },
@@ -52,7 +53,6 @@ export default function ClinicProfile() {
 
   const plan = PLAN_CONFIG[clinic?.plan] ?? PLAN_CONFIG.free
   const createdAt = clinic?.created_at ? new Date(clinic.created_at).toLocaleDateString("pt-BR",{day:"2-digit",month:"long",year:"numeric"}) : "—"
-  const inp = { background:t.bgInput, border:`1px solid ${t.border}`, borderRadius:8, padding:"11px 14px", fontSize:14, color:t.textPrimary, outline:"none", transition:"border-color 0.2s", width:"100%", boxSizing:"border-box" }
 
   return (
     <AppLayout>
@@ -73,29 +73,28 @@ export default function ClinicProfile() {
         </header>
 
         <div style={{ display:"grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 340px", gap:20, alignItems:"start" }}>
-          <div style={{ background:t.bgCard, borderRadius:12, padding: isMobile ? "16px" : "28px 24px" }}>
+          <Card padding={isMobile ? "16px" : "28px 24px"}>
             <h2 style={{ fontSize:13,fontWeight:700,color:t.textMuted,textTransform:"uppercase",letterSpacing:"0.08em",margin:"0 0 20px" }}>Informações gerais</h2>
             <form onSubmit={handleSave} style={{ display:"flex",flexDirection:"column",gap:18 }}>
               {[["Nome da clínica *","text","Ex: Clínica Odonto Saúde",name,setName],["Telefone","text","(00) 00000-0000",phone,setPhone],["E-mail de contato","email","contato@clinica.com",email,setEmail]].map(([lbl,type,ph,val,setter])=>(
                 <div key={lbl} style={{ display:"flex",flexDirection:"column",gap:6 }}>
                   <label style={{ fontSize:13,fontWeight:600,color:t.textMuted }}>{lbl}</label>
-                  <input type={type} placeholder={ph} value={val} onChange={e=>setter(e.target.value)} required={lbl.includes("*")} style={inp}
-                    onFocus={e=>e.target.style.borderColor=t.accent} onBlur={e=>e.target.style.borderColor=t.border} />
+                  <Input type={type} placeholder={ph} value={val} onChange={e=>setter(e.target.value)} required={lbl.includes("*")} />
                 </div>
               ))}
               <div style={{ display:"flex",flexDirection:"column",gap:6 }}>
                 <label style={{ fontSize:13,fontWeight:600,color:t.textMuted }}>E-mail do administrador</label>
-                <input type="text" value={user?.email??""} disabled style={{ ...inp,opacity:0.5,cursor:"not-allowed" }} />
+                <Input type="text" value={user?.email??""} disabled style={{ opacity:0.5,cursor:"not-allowed" }} />
                 <span style={{ fontSize:11,color:t.textDisabled }}>Este é o e-mail da sua conta. Não pode ser alterado aqui.</span>
               </div>
-              <button type="submit" disabled={loading||!name.trim()} style={{ background:t.accent,border:"none",borderRadius:8,padding:13,fontSize:15,fontWeight:700,color:"#fff",cursor:"pointer",width:"100%",marginTop:4,opacity:loading||!name.trim()?0.5:1 }}>
+              <Button type="submit" disabled={loading||!name.trim()} loading={loading} fullWidth>
                 {loading ? "Salvando..." : "Salvar alterações"}
-              </button>
+              </Button>
             </form>
-          </div>
+          </Card>
 
           <div style={{ display:"flex",flexDirection:"column",gap:16 }}>
-            <div style={{ background:t.bgCard,borderRadius:12,padding:isMobile ? 16 : 24,borderTop:`3px solid ${plan.color}` }}>
+            <Card padding={isMobile ? 16 : 24} borderTop={plan.color}>
               <div style={{ display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8 }}>
                 <span style={{ fontSize:13,fontWeight:700,color:t.textMuted,textTransform:"uppercase",letterSpacing:"0.08em" }}>Plano atual</span>
                 <span style={{ fontSize:11,fontWeight:700,border:`1px solid ${plan.color}44`,borderRadius:99,padding:"3px 10px",textTransform:"uppercase",color:plan.color }}>{plan.label}</span>
@@ -104,11 +103,11 @@ export default function ClinicProfile() {
               {clinic?.staff_limit && <p style={{ fontSize:12,color:t.textDisabled,margin:0 }}>Limite de staff: {clinic.staff_limit} usuários</p>}
               <div style={{ height:1,background:t.bgInset,margin:"16px 0" }} />
               <a href="https://instagram.com/clinicos" target="_blank" rel="noopener noreferrer" style={{ textDecoration:"none" }}>
-                <button style={{ background:"transparent",border:`1px solid ${t.borderStrong}`,color:t.textMuted,borderRadius:8,padding:10,fontSize:13,fontWeight:600,cursor:"pointer",width:"100%" }}>Fazer upgrade →</button>
+                <Button variant="secondary" fullWidth>Fazer upgrade →</Button>
               </a>
-            </div>
+            </Card>
 
-            <div style={{ background:t.bgCard,borderRadius:12,padding:isMobile ? 16 : 24 }}>
+            <Card padding={isMobile ? 16 : 24}>
               <span style={{ fontSize:13,fontWeight:700,color:t.textMuted,textTransform:"uppercase",letterSpacing:"0.08em",display:"block",marginBottom:16 }}>Resumo da clínica</span>
               <div style={{ display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:16 }}>
                 {[["Pacientes",stats.patients],["Agendamentos",stats.appointments]].map(([lbl,val])=>(
@@ -127,7 +126,7 @@ export default function ClinicProfile() {
                   <span style={{ fontSize:12,color:t.textFaint,fontWeight:600,fontFamily:lbl.includes("ID")?"monospace":undefined,wordBreak:"break-all",textAlign:"right" }}>{val}</span>
                 </div>
               ))}
-            </div>
+            </Card>
           </div>
         </div>
       </div>

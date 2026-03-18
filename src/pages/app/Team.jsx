@@ -3,6 +3,8 @@ import { supabase } from "../../supabaseClient"
 import { useAuth } from "../../context/AuthContext"
 import { useTheme } from "../../context/ThemeContext"
 import AppLayout from "../AppLayout"
+import { Button, Input } from "../../components/ui"
+import { STATUS_COLORS } from "../../config/statusColors"
 
 const ROLE_CONFIG = {
   admin:          { label: "Admin",          color: "#8b5cf6" },
@@ -89,7 +91,6 @@ export default function Team() {
 
   useEffect(() => { if (clinicId) fetchMembers() }, [clinicId])
 
-  const inp = { background: t.bgInput, border: `1px solid ${t.border}`, borderRadius: 8, padding: "10px 12px", fontSize: 14, color: t.textPrimary, outline: "none", transition: "border-color 0.2s", width: "100%", boxSizing: "border-box" }
   const staffLimit = clinic?.staff_limit ?? 1
   const atLimit = members.length >= staffLimit
 
@@ -112,9 +113,9 @@ export default function Team() {
           </div>
           {staffLimit !== 999 && (
             <div style={{ width: isMobile ? "100%" : 160 }}>
-              <div style={{ height: 6, background: t.bgInset, borderRadius: 99, overflow: "hidden" }}>
-                <div style={{ height: "100%", borderRadius: 99, transition: "width 0.4s", width: `${Math.min((members.length / staffLimit) * 100, 100)}%`, background: atLimit ? "#ef4444" : "#3b82f6" }} />
-              </div>
+            <div style={{ height: 6, background: t.bgInset, borderRadius: 99, overflow: "hidden" }}>
+              <div style={{ height: "100%", borderRadius: 99, transition: "width 0.4s", width: `${Math.min((members.length / staffLimit) * 100, 100)}%`, background: atLimit ? t.errorText : t.accent }} />
+            </div>
             </div>
           )}
         </div>
@@ -126,28 +127,25 @@ export default function Team() {
             {[["Nome *","text","Nome completo",inviteName,setInviteName],["E-mail *","email","membro@clinica.com",inviteEmail,setInviteEmail]].map(([lbl,type,ph,val,setter]) => (
               <div key={lbl} style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                 <label style={{ fontSize: 12, fontWeight: 600, color: t.textFaint }}>{lbl}</label>
-                <input type={type} placeholder={ph} value={val} onChange={e => setter(e.target.value)} style={inp} disabled={atLimit}
-                  onFocus={e => e.target.style.borderColor = t.accent} onBlur={e => e.target.style.borderColor = t.border} />
+                <Input type={type} placeholder={ph} value={val} onChange={e => setter(e.target.value)} disabled={atLimit} />
               </div>
             ))}
             <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
               <label style={{ fontSize: 12, fontWeight: 600, color: t.textFaint }}>Função</label>
-              <select value={inviteRole} onChange={e => setInviteRole(e.target.value)} disabled={atLimit} style={{ ...inp, cursor: "pointer" }}>
+              <select value={inviteRole} onChange={e => setInviteRole(e.target.value)} disabled={atLimit} style={{ background:t.bgInput, border:`1px solid ${t.border}`, borderRadius:8, padding:"10px 12px", fontSize:14, color:t.textPrimary, outline:"none", width:"100%", boxSizing:"border-box", cursor: "pointer" }}>
                 {Object.entries(ROLE_CONFIG).filter(([k]) => k !== "admin").map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
               </select>
             </div>
             <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
               <label style={{ fontSize: 12, fontWeight: 600, color: t.textFaint }}>Especialidade</label>
-              <input type="text" placeholder="Ex: Ortodontia, Clínica Geral..." value={inviteSpecialty}
-                onChange={e => setInviteSpecialty(e.target.value)} style={inp} disabled={atLimit}
-                onFocus={e => e.target.style.borderColor = t.accent} onBlur={e => e.target.style.borderColor = t.border} />
+              <Input type="text" placeholder="Ex: Ortodontia, Clínica Geral..." value={inviteSpecialty}
+                onChange={e => setInviteSpecialty(e.target.value)} disabled={atLimit} />
             </div>
           </div>
           {inviteError && <div style={{ background: t.errorBg, border: `1px solid ${t.errorBorder}`, color: t.errorText, borderRadius: 8, padding: "10px 14px", fontSize: 13, marginTop: 14 }}>{inviteError}</div>}
-          <button onClick={handleInvite} disabled={inviting || atLimit || !inviteEmail.trim() || !inviteName.trim()}
-            style={{ marginTop: 16, background: t.accent, border: "none", borderRadius: 8, padding: "11px 24px", fontSize: 14, fontWeight: 700, color: "#fff", cursor: "pointer", width: isMobile ? "100%" : "auto", opacity: inviting || atLimit || !inviteEmail.trim() || !inviteName.trim() ? 0.5 : 1 }}>
+          <Button onClick={handleInvite} disabled={inviting || atLimit || !inviteEmail.trim() || !inviteName.trim()} loading={inviting} fullWidth={isMobile} style={{ marginTop: 16 }}>
             {inviting ? "Enviando convite..." : "✉️ Enviar convite"}
-          </button>
+          </Button>
           <p style={{ margin: "10px 0 0", fontSize: 12, color: t.textGhost }}>O membro receberá um email com link para definir a senha e acessar o sistema.</p>
         </div>
 
@@ -183,11 +181,11 @@ export default function Team() {
                     <span style={{ fontSize: 12, color: t.textGhost }}>{m.created_at ? new Date(m.created_at).toLocaleDateString("pt-BR") : "—"}</span>
                     {removeConfirm === m.id ? (
                       <span style={{ display: "flex", gap: 6 }}>
-                        <button onClick={() => handleRemove(m.id)} style={{ background: t.errorBg, border: "none", color: t.errorText, borderRadius: 6, padding: "6px 10px", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>Sim</button>
-                        <button onClick={() => setRemoveConfirm(null)} style={{ background: t.bgCard, border: `1px solid ${t.border}`, color: t.textMuted, borderRadius: 6, padding: "6px 10px", fontSize: 12, cursor: "pointer" }}>Não</button>
+                        <Button onClick={() => handleRemove(m.id)} size="sm" style={{ background: t.errorBg, border: "none", color: t.errorText }}>Sim</Button>
+                        <Button onClick={() => setRemoveConfirm(null)} size="sm" variant="secondary">Não</Button>
                       </span>
                     ) : (
-                      <button onClick={() => setRemoveConfirm(m.id)} style={{ background: "transparent", border: `1px solid ${t.borderStrong}`, color: t.textFaint, borderRadius: 6, padding: "5px 14px", fontSize: 12, cursor: "pointer" }}>Remover</button>
+                      <Button onClick={() => setRemoveConfirm(m.id)} size="sm" variant="ghost">Remover</Button>
                     )}
                   </div>
                 </div>
@@ -221,11 +219,11 @@ export default function Team() {
                       {removeConfirm === m.id ? (
                         <span style={{ display: "flex", alignItems: "center", gap: 8, justifyContent: "flex-end" }}>
                           <span style={{ fontSize: 12, color: t.errorText }}>Confirmar?</span>
-                          <button onClick={() => handleRemove(m.id)} style={{ background: t.errorBg, border: "none", color: t.errorText, borderRadius: 6, padding: "5px 12px", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>Sim</button>
-                          <button onClick={() => setRemoveConfirm(null)} style={{ background: t.bgCard, border: `1px solid ${t.border}`, color: t.textMuted, borderRadius: 6, padding: "5px 12px", fontSize: 12, cursor: "pointer" }}>Não</button>
+                          <Button onClick={() => handleRemove(m.id)} size="sm" style={{ background: t.errorBg, border: "none", color: t.errorText }}>Sim</Button>
+                          <Button onClick={() => setRemoveConfirm(null)} size="sm" variant="secondary">Não</Button>
                         </span>
                       ) : (
-                        <button onClick={() => setRemoveConfirm(m.id)} style={{ background: "transparent", border: `1px solid ${t.borderStrong}`, color: t.textFaint, borderRadius: 6, padding: "5px 14px", fontSize: 12, cursor: "pointer" }}>Remover</button>
+                        <Button onClick={() => setRemoveConfirm(m.id)} size="sm" variant="ghost">Remover</Button>
                       )}
                     </td>
                   </tr>
