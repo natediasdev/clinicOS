@@ -307,10 +307,17 @@ export default function Financial() {
       
       const key = `${startOfWeek.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })} - ${endOfWeek.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}`;
       
-      weekBuckets[key] = (weekBuckets[key] || 0) + parseFloat(p.final_amount || 0);
+      if (!weekBuckets[key]) weekBuckets[key] = { valor: 0, qtd: 0 };
+      weekBuckets[key].valor += parseFloat(p.final_amount || 0);
+      weekBuckets[key].qtd   += 1;
     });
     
-    return Object.entries(weekBuckets).map(([semana, valor]) => ({ semana, valor }));
+    return Object.entries(weekBuckets).map(([semana, { valor, qtd }]) => ({
+      semana,
+      valor:        Math.round(valor),
+      qtd,
+      ticket_medio: qtd > 0 ? Math.round(valor / qtd) : 0,
+    }));
   };
 
   async function handleStatusChange(id, newStatus) {
