@@ -283,9 +283,9 @@ export default function Dashboard() {
               ) : (
                 <ResponsiveContainer width="100%" height={220}>
                   <BarChart data={d.revenueByWeek} margin={{ top:4, right:4, left:-16, bottom:0 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" vertical={false}/>
-                    <XAxis dataKey="semana" tick={{ fill:"#475569", fontSize:11 }} axisLine={false} tickLine={false}/>
-                    <YAxis tick={{ fill:"#475569", fontSize:11 }} axisLine={false} tickLine={false} tickFormatter={v=>`R$${(v/1000).toFixed(0)}k`}/>
+                    <CartesianGrid strokeDasharray="3 3" stroke={t.border} vertical={false}/>
+                    <XAxis dataKey="semana" tick={{ fill:t.textGhost, fontSize:11 }} axisLine={false} tickLine={false}/>
+                    <YAxis tick={{ fill:t.textGhost, fontSize:11 }} axisLine={false} tickLine={false} tickFormatter={v=>`R$${(v/1000).toFixed(0)}k`}/>
                     <Tooltip content={<ThemedTooltip currency/>}/>
                     <Bar dataKey="valor" name="Faturamento" fill="#3b82f6" radius={[4,4,0,0]}>
                       {d.revenueByWeek.map((_,i)=>(
@@ -326,8 +326,8 @@ export default function Dashboard() {
             <SectionCard t={t} title="Atendimentos por dia da semana">
               <ResponsiveContainer width="100%" height={200}>
                 <BarChart data={d.occupancyByDay} margin={{ top:4, right:4, left:-16, bottom:0 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" vertical={false}/>
-                  <XAxis dataKey="dia" tick={{ fill:"#475569", fontSize:12 }} axisLine={false} tickLine={false}/>
+                  <CartesianGrid strokeDasharray="3 3" stroke={t.border} vertical={false}/>
+                  <XAxis dataKey="dia" tick={{ fill:t.textGhost, fontSize:12 }} axisLine={false} tickLine={false}/>
                   <YAxis tick={{ fill:t.textMuted, fontSize:11 }} axisLine={false} tickLine={false}/>
                   <Tooltip content={<ThemedTooltip/>}/>
                   <Bar dataKey="concluido" name="Concluído" stackId="a" fill="#22c55e" radius={[0,0,0,0]}/>
@@ -352,8 +352,8 @@ export default function Dashboard() {
                         <stop offset="95%" stopColor="#3b82f6" stopOpacity={0}/>
                       </linearGradient>
                     </defs>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" vertical={false}/>
-                    <XAxis dataKey="mes" tick={{ fill:"#475569", fontSize:11 }} axisLine={false} tickLine={false}/>
+                    <CartesianGrid strokeDasharray="3 3" stroke={t.border} vertical={false}/>
+                    <XAxis dataKey="mes" tick={{ fill:t.textGhost, fontSize:11 }} axisLine={false} tickLine={false}/>
                     <YAxis tick={{ fill:t.textMuted, fontSize:11 }} axisLine={false} tickLine={false}/>
                     <Tooltip content={<ThemedTooltip/>}/>
                     <Area type="monotone" dataKey="total" name="Pacientes" stroke="#3b82f6" strokeWidth={2} fill="url(#pgGrad)" dot={{ fill:"#3b82f6", r:3 }}/>
