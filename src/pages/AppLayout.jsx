@@ -103,10 +103,10 @@ export default function AppLayout({ children }) {
   return (
     <div style={{
       display: "flex",
-      minHeight: "100vh",
+      height: "100vh",
       width: "100%",
       maxWidth: "100%",
-      overflowX: "hidden",
+      overflow: "hidden",
       background: t.bgPage,
       fontFamily: "'DM Sans','Segoe UI',sans-serif",
       color: t.textBody,
@@ -256,10 +256,10 @@ export default function AppLayout({ children }) {
       {/* ── DESKTOP: Sidebar ── */}
       {!isMobile && (
         <aside style={{
-          width: 220, minHeight: "100vh",
+          width: 220,
           background: t.bgSidebar, borderRight: `1px solid ${t.border}`,
           display: "flex", flexDirection: "column", flexShrink: 0,
-          position: "sticky", top: 0, height: "100vh",
+          height: "100vh", overflowY: "auto",
         }}>
           <div style={{ padding: "28px 24px 20px", borderBottom: `1px solid ${t.border}` }}>
             <span style={{ fontSize: 20, fontWeight: 800, color: t.textPrimary, letterSpacing: "-0.5px" }}>
@@ -322,6 +322,8 @@ export default function AppLayout({ children }) {
         flex: 1,
         minWidth: 0,
         maxWidth: "100%",
+        height: "100vh",
+        overflowY: "auto",
         overflowX: "hidden",
         padding: isMobile
           ? `20px max(16px, env(safe-area-inset-right, 0px)) max(20px, env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px))`
