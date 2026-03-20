@@ -2,8 +2,12 @@ import { Link, useLocation } from "react-router-dom"
 import { useAuth } from "../context/AuthContext"
 import { useTheme } from "../context/ThemeContext"
 import { usePermissions } from "../hooks/usePermissions"
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef, useCallback } from "react"
+import { motion } from "framer-motion"
+import { pageVariants } from "../hooks/useMotion"
 
+
+// ─── Animações globais do app (CSS puro, injetado uma vez) ────────────────────
 // ─── Nav Icons (SVG inline) ───────────────────────────────────────────────────
 const NavIcons = {
   dashboard:    (c) => (
@@ -331,7 +335,17 @@ export default function AppLayout({ children }) {
         boxSizing: "border-box",
         fontSize: isMobile ? "14px" : "16px",
       }}>
-        {children}
+        {/* motion.div — transição de página via Framer Motion */}
+        <motion.div
+          key={location.pathname}
+          variants={pageVariants}
+          initial="initial"
+          animate="enter"
+          exit="exit"
+          style={{ minHeight: "100%" }}
+        >
+          {children}
+        </motion.div>
       </main>
 
     </div>
