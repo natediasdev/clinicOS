@@ -1,6 +1,6 @@
 import { Link } from "react-router-dom"
 import ParticleBackground from "../../components/ParticleBackground"
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect, useRef, useCallback } from "react"
 
 // ─── GSAP via CDN ─────────────────────────────────────────────────────────────
 function useGSAP(callback) {
@@ -303,12 +303,42 @@ function Nav() {
 
 // ─── Hero ─────────────────────────────────────────────────────────────────────
 function Hero() {
-  const badgeRef = useRef(null); const titleRef = useRef(null)
-  const subRef   = useRef(null); const ctasRef  = useRef(null)
-  const noteRef  = useRef(null); const prevRef  = useRef(null)
+  const badgeRef  = useRef(null); const titleRef = useRef(null)
+  const subRef    = useRef(null); const ctasRef  = useRef(null)
+  const noteRef   = useRef(null); const prevRef  = useRef(null)
+  // Parallax refs
+  const gridRef   = useRef(null)
+  const glowRef   = useRef(null)
+  const prevWrapRef = useRef(null)
+  const scrollY   = useRef(0)
+  const rafId     = useRef(null)
 
+  // ── Parallax via rAF — zero jank, CPU mínimo ──────────────────────────────
+  const applyParallax = useCallback(() => {
+    const y = scrollY.current
+    // Grid: move mais devagar que o scroll (efeito de profundidade)
+    if (gridRef.current)    gridRef.current.style.transform    = `translateY(${y * 0.28}px)`
+    // Glow: ainda mais lento
+    if (glowRef.current)    glowRef.current.style.transform    = `translate(-50%, calc(-50% + ${y * 0.14}px))`
+    // Preview: leve "float" na direção oposta ao scroll
+    if (prevWrapRef.current) prevWrapRef.current.style.transform = `translateY(${y * -0.06}px)`
+    rafId.current = null
+  }, [])
+
+  useEffect(() => {
+    const onScroll = () => {
+      scrollY.current = window.scrollY
+      if (!rafId.current) rafId.current = requestAnimationFrame(applyParallax)
+    }
+    window.addEventListener("scroll", onScroll, { passive: true })
+    return () => {
+      window.removeEventListener("scroll", onScroll)
+      if (rafId.current) cancelAnimationFrame(rafId.current)
+    }
+  }, [applyParallax])
+
+  // ── Animação de entrada GSAP ──────────────────────────────────────────────
   useGSAP((gsap) => {
-    // Estado inicial definido pelo GSAP — se o GSAP falhar, elementos ficam visíveis
     gsap.set([badgeRef.current, titleRef.current, subRef.current,
                ctasRef.current, noteRef.current], { opacity:0, y:20 })
     gsap.set(prevRef.current, { opacity:0, y:40 })
@@ -324,10 +354,13 @@ function Hero() {
   return (
     <section className="lp-hero">
       <div className="lp-hero-bg">
-        <div className="lp-hero-grid" />
-        <div className="lp-hero-glow" />
+        {/* Camada 1 — grid: move 28% do scroll (mais lento = mais longe) */}
+        <div ref={gridRef} className="lp-hero-grid" style={{ willChange:"transform" }}/>
+        {/* Camada 2 — glow: move 14% (mais longe ainda) */}
+        <div ref={glowRef} className="lp-hero-glow" style={{ willChange:"transform" }}/>
         <ParticleBackground color="#3b82f6" count={48} speed={0.3} opacity={0.11}/>
       </div>
+
       <div ref={badgeRef} className="lp-hero-badge">✦ Gestão clínica simplificada</div>
       <h1 ref={titleRef} className="lp-hero-title">
         Sua clínica organizada.<br/>
@@ -341,20 +374,24 @@ function Hero() {
         <a href="#features"><button className="lp-btn-ghost">Ver funcionalidades ↓</button></a>
       </div>
       <p ref={noteRef} className="lp-hero-note">Sem instalação · Pronto em minutos · Suporte via WhatsApp</p>
-      <div ref={prevRef} className="lp-hero-preview">
-        <div className="lp-preview-bar">
-          <span className="lp-dot" style={{background:"#ef4444"}}/>
-          <span className="lp-dot" style={{background:"#fbbf24"}}/>
-          <span className="lp-dot" style={{background:"#22c55e"}}/>
-          <span className="lp-preview-title">Dashboard — ClinicOS</span>
-        </div>
-        <div className="lp-preview-body">
-          {[{label:"Pacientes ativos",val:"248",color:"#3b82f6"},{label:"Agendamentos hoje",val:"12",color:"#8b5cf6"},{label:"Próximos na fila",val:"5",color:"#f59e0b"},{label:"Ocupação semanal",val:"87%",color:"#22c55e"}].map(m=>(
-            <div key={m.label} className="lp-preview-card" style={{borderTop:`2px solid ${m.color}`}}>
-              <span className="lp-preview-val" style={{color:m.color}}>{m.val}</span>
-              <span className="lp-preview-label">{m.label}</span>
-            </div>
-          ))}
+
+      {/* Camada 3 — preview: leve counter-scroll (-6%) cria sensação de flutuar */}
+      <div ref={prevWrapRef} style={{ width:"100%", display:"flex", justifyContent:"center", willChange:"transform" }}>
+        <div ref={prevRef} className="lp-hero-preview">
+          <div className="lp-preview-bar">
+            <span className="lp-dot" style={{background:"#ef4444"}}/>
+            <span className="lp-dot" style={{background:"#fbbf24"}}/>
+            <span className="lp-dot" style={{background:"#22c55e"}}/>
+            <span className="lp-preview-title">Dashboard — ClinicOS</span>
+          </div>
+          <div className="lp-preview-body">
+            {[{label:"Pacientes ativos",val:"248",color:"#3b82f6"},{label:"Agendamentos hoje",val:"12",color:"#8b5cf6"},{label:"Próximos na fila",val:"5",color:"#f59e0b"},{label:"Ocupação semanal",val:"87%",color:"#22c55e"}].map(m=>(
+              <div key={m.label} className="lp-preview-card" style={{borderTop:`2px solid ${m.color}`}}>
+                <span className="lp-preview-val" style={{color:m.color}}>{m.val}</span>
+                <span className="lp-preview-label">{m.label}</span>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
     </section>
