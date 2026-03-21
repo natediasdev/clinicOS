@@ -213,21 +213,23 @@ function NextAppointmentsList({ items, t }) {
           <span style={{ fontSize:32 }}>📅</span>
           <p style={{ fontSize:14, color:t.textGhost, margin:0, fontWeight:600 }}>Nenhum agendamento pendente</p>
         </div>
-      ) : <MotionList>{items.map(appt => {
-        const st = STATUS_STYLE[appt.status]??STATUS_STYLE.scheduled
-        return (
-          <MotionItem key={appt.id}><div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"12px 0", borderBottom:`1px solid ${t.bgInset}` }}>
-            <div style={{ display:"flex", flexDirection:"column", gap:2 }}>
-              <span style={{ fontSize:16, fontWeight:700, color:t.textPrimary }}>{formatTime(appt.datetime)}</span>
-              <span style={{ fontSize:11, color:t.textGhost, textTransform:"capitalize" }}>{formatDate(appt.datetime)}</span>
-            </div>
-            <div style={{ display:"flex", flexDirection:"column", alignItems:"flex-end", gap:4 }}>
-              <span style={{ fontSize:13, fontWeight:600, color:t.textBody }}>{appt.patientName??"—"}</span>
-              <span style={{ fontSize:11, fontWeight:600, padding:"3px 10px", borderRadius:20, color:st.color, background:st.bg }}>{st.label}</span>
-            </div>
-          </div></MotionItem>
-        )
-      })}</MotionList>
+      ) : (
+        <MotionList>{items.map(appt => {
+          const st = STATUS_STYLE[appt.status]??STATUS_STYLE.scheduled
+          return (
+            <MotionItem key={appt.id}><div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"12px 0", borderBottom:`1px solid ${t.bgInset}` }}>
+              <div style={{ display:"flex", flexDirection:"column", gap:2 }}>
+                <span style={{ fontSize:16, fontWeight:700, color:t.textPrimary }}>{formatTime(appt.datetime)}</span>
+                <span style={{ fontSize:11, color:t.textGhost, textTransform:"capitalize" }}>{formatDate(appt.datetime)}</span>
+              </div>
+              <div style={{ display:"flex", flexDirection:"column", alignItems:"flex-end", gap:4 }}>
+                <span style={{ fontSize:13, fontWeight:600, color:t.textBody }}>{appt.patientName??"—"}</span>
+                <span style={{ fontSize:11, fontWeight:600, padding:"3px 10px", borderRadius:20, color:st.color, background:st.bg }}>{st.label}</span>
+              </div>
+            </div></MotionItem>
+          )
+        })}</MotionList>
+      )}
     </div>
   )
 }

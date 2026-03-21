@@ -191,6 +191,7 @@ export default function Team() {
                   </div>
                 </div>
               ))}
+              </MotionList>
             </div>
           ) : (
             <table style={{ width: "100%", borderCollapse: "collapse" }}>
@@ -229,6 +230,7 @@ export default function Team() {
                     </td>
                   </tr>
                 ))}
+                </MotionList>
               </tbody>
             </table>
           )}

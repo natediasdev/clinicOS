@@ -7,7 +7,6 @@ import AppLayout from "../AppLayout"
 import RevenueChart from "../../components/financial/RevenueChart"
 import { Button, Input } from "../../components/ui"
 import { STATUS_COLORS, getStatusConfig } from "../../config/statusColors"
-import { MotionModal } from "../../components/ui/MotionComponents"
 
 // ─── Constantes ───────────────────────────────────────────────────────────────
 

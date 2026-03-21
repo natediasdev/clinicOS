@@ -19,7 +19,7 @@ import {
   itemVariants,
   cardVariants,
   actionVariants,
-} from "../hooks/useMotion"
+} from "../../hooks/useMotion"
 
 // ─── MotionModal ──────────────────────────────────────────────────────────────
 /**
