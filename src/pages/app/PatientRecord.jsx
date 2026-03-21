@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react"
+import { MotionToast } from "../../components/ui/MotionComponents"
 import { useParams, useNavigate } from "react-router-dom"
 import { supabase } from "../../supabaseClient"
 import { useAuth } from "../../context/AuthContext"
@@ -18,17 +19,18 @@ const TABS = [
 // ─── Toast ────────────────────────────────────────────────────────────────────
 function Toast({ toast }) {
   const { t } = useTheme()
-  if (!toast) return null
-  const ok = toast.type === "success"
+  const ok = toast?.type === "success"
   return (
-    <div style={{ position:"fixed", bottom:24, right:24, zIndex:999, borderRadius:10, padding:"12px 20px",
-      fontSize:14, fontWeight:600, boxShadow:"0 8px 24px rgba(0,0,0,0.3)",
-      background: ok ? t.successBg : t.errorBg,
-      border: `1px solid ${ok ? t.successBorder : t.errorBorder}`,
-      color: ok ? t.successText : t.errorText,
-    }}>
-      {ok ? "✓" : "✕"} {toast.msg}
-    </div>
+    <MotionToast toast={toast}>
+      <div style={{ borderRadius:10, padding:"12px 20px",
+        fontSize:14, fontWeight:600, boxShadow:"0 8px 24px rgba(0,0,0,0.3)",
+        background: ok ? t.successBg : t.errorBg,
+        border: `1px solid ${ok ? t.successBorder : t.errorBorder}`,
+        color: ok ? t.successText : t.errorText,
+      }}>
+        {ok ? "✓" : "✕"} {toast?.msg}
+      </div>
+    </MotionToast>
   )
 }
 

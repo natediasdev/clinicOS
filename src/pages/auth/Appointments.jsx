@@ -1,4 +1,5 @@
 import { useEffect, useState, useRef } from "react"
+import { MotionToast, MotionModal, MotionList, MotionItem } from "../../components/ui/MotionComponents"
 import { useAuth } from "../../context/AuthContext"
 import { useTheme } from "../../context/ThemeContext"
 import { supabase } from "../../supabaseClient"
@@ -48,19 +49,19 @@ function useIsMobile() {
 // ─── Toast ────────────────────────────────────────────────────────────────────
 
 function Toast({ toast, t }) {
-  if (!toast) return null
-  const ok = toast.type === "success"
+  const ok = toast?.type === "success"
   return (
-    <div style={{
-      position:"fixed", bottom:24, right:24, zIndex:999,
-      background: ok ? t.successBg : t.errorBg,
-      border: `1px solid ${ok ? t.successBorder : t.errorBorder}`,
-      color: ok ? t.successText : t.errorText,
-      borderRadius:10, padding:"12px 20px", fontSize:14, fontWeight:600,
-      fontFamily:"'DM Sans','Segoe UI',sans-serif", boxShadow:"0 8px 24px rgba(0,0,0,0.4)",
-    }}>
-      {ok ? "✓" : "✕"} {toast.message}
-    </div>
+    <MotionToast toast={toast}>
+      <div style={{
+        background: ok ? t.successBg : t.errorBg,
+        border: `1px solid ${ok ? t.successBorder : t.errorBorder}`,
+        color: ok ? t.successText : t.errorText,
+        borderRadius:10, padding:"12px 20px", fontSize:14, fontWeight:600,
+        fontFamily:"'DM Sans','Segoe UI',sans-serif", boxShadow:"0 8px 24px rgba(0,0,0,0.4)",
+      }}>
+        {ok ? "✓" : "✕"} {toast?.message}
+      </div>
+    </MotionToast>
   )
 }
 
@@ -158,7 +159,7 @@ function AppointmentModal({ onClose, onSave, staffList, clinicId }) {
   }
 
   return (
-    <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.7)", display:"flex", alignItems:"center", justifyContent:"center", zIndex:100, padding:24 }}
+    <MotionModal style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.7)", display:"flex", alignItems:"center", justifyContent:"center", zIndex:100, padding:24 }}
       onClick={e=>e.target===e.currentTarget&&onClose()}>
       <div style={{ background:t.bgInset, border:`1px solid ${t.border}`, borderRadius:16, width:"100%", maxWidth:480, display:"flex", flexDirection:"column" }}>
 
@@ -205,7 +206,7 @@ function AppointmentModal({ onClose, onSave, staffList, clinicId }) {
           </Button>
         </div>
       </div>
-    </div>
+    </MotionModal>
   )
 }
 
@@ -402,25 +403,23 @@ export default function Appointments() {
         <AppointmentModal onClose={()=>setShowModal(false)} onSave={handleSaved} staffList={staffList} clinicId={clinicId} />
       )}
 
-      {selectedDay && (
-        <div style={s.modalOverlay} onClick={()=>setSelectedDay(null)}>
-          <div style={s.modal} onClick={e=>e.stopPropagation()}>
-            <div style={s.modalHeader}>
-              <h2 style={s.modalTitle}>{selectedDay.date.toLocaleDateString("pt-BR",{weekday:"long",day:"2-digit",month:"long"})}</h2>
-              <button style={{ background:"transparent", border:"none", color:t.textGhost, fontSize:18, cursor:"pointer" }} onClick={()=>setSelectedDay(null)}>✕</button>
-            </div>
-            <div style={s.modalBody}>
-              {selectedDay.appts.map(a=>(
-                <div key={a.id} style={s.dayApptRow}>
-                  <span style={s.dayApptTime}>{formatTime(a.datetime)}</span>
-                  <span style={s.dayApptName}>{patientMap[a.client_id]?.name ?? "—"}</span>
-                  <StatusBadge status={a.status} />
-                </div>
-              ))}
-            </div>
+      <MotionModal open={!!selectedDay} onClose={()=>setSelectedDay(null)} maxWidth={480}>
+        <div style={s.modal}>
+          <div style={s.modalHeader}>
+            <h2 style={s.modalTitle}>{selectedDay?.date.toLocaleDateString("pt-BR",{weekday:"long",day:"2-digit",month:"long"})}</h2>
+            <button style={{ background:"transparent", border:"none", color:t.textGhost, fontSize:18, cursor:"pointer" }} onClick={()=>setSelectedDay(null)}>✕</button>
+          </div>
+          <div style={s.modalBody}>
+            {selectedDay?.appts.map(a=>(
+              <div key={a.id} style={s.dayApptRow}>
+                <span style={s.dayApptTime}>{formatTime(a.datetime)}</span>
+                <span style={s.dayApptName}>{patientMap[a.client_id]?.name ?? "—"}</span>
+                <StatusBadge status={a.status} />
+              </div>
+            ))}
           </div>
         </div>
-      )}
+      </MotionModal>
 
       <div style={{ color:t.textBody, fontFamily:"'DM Sans','Segoe UI',sans-serif" }}>
         <header style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:isMobile?16:24, gap:16, flexWrap:"wrap" }}>
@@ -512,9 +511,9 @@ export default function Appointments() {
                   <p style={{ fontSize:13, color:t.borderStrong, margin:0 }}>{filterStatus!=="all"?"Tente outro filtro ou ":""}clique em "+ Novo agendamento" para começar.</p>
                 </div>
               ) : isMobile ? (
-                <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
+                <MotionList style={{ display:"flex", flexDirection:"column", gap:10 }}>
                   {filtered.map(a=>(
-                    <div key={a.id} style={{ background:t.bgInset, borderRadius:10, padding:"14px 16px", display:"flex", flexDirection:"column", gap:8 }}>
+                    <MotionItem key={a.id}><div style={{ background:t.bgInset, borderRadius:10, padding:"14px 16px", display:"flex", flexDirection:"column", gap:8 }}>
                       <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
                         <span style={{ fontWeight:700, color:t.textPrimary, fontSize:15 }}>{patientMap[a.client_id]?.name ?? "—"}</span>
                         <StatusBadge status={a.status} />
@@ -528,9 +527,9 @@ export default function Appointments() {
                         </select>
                         <Button onClick={()=>handleDelete(a.id)} size="sm" variant="ghost">Remover</Button>
                       </div>
-                    </div>
+                    </div></MotionItem>
                   ))}
-                </div>
+                </MotionList>
               ) : (
                 <table style={s.table}>
                   <thead>

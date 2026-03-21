@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback, useRef } from "react"
+import { MotionToast, MotionList, MotionItem, MotionButton } from "../../components/ui/MotionComponents"
 import { useNavigate } from "react-router-dom"
 import { supabase } from "../../supabaseClient"
 import AppLayout from "../AppLayout"
@@ -19,15 +20,17 @@ function useIsMobile() {
 
 function Toast({ toast }) {
   const { t } = useTheme()
-  if (!toast) return null
+  const ok = toast?.type === "success"
   return (
-    <div style={{ position:"fixed", bottom:24, right:24, zIndex:999, border:"1px solid", borderRadius:10, padding:"12px 20px", fontSize:14, fontWeight:600, boxShadow:"0 8px 24px rgba(0,0,0,0.2)",
-      background: toast.type==="success" ? t.successBg : t.errorBg,
-      borderColor: toast.type==="success" ? t.successBorder : t.errorBorder,
-      color: toast.type==="success" ? t.successText : t.errorText,
-    }}>
-      {toast.type==="success" ? "✓" : "✕"} {toast.msg}
-    </div>
+    <MotionToast toast={toast}>
+      <div style={{ border:"1px solid", borderRadius:10, padding:"12px 20px", fontSize:14, fontWeight:600, boxShadow:"0 8px 24px rgba(0,0,0,0.2)",
+        background: ok ? t.successBg : t.errorBg,
+        borderColor: ok ? t.successBorder : t.errorBorder,
+        color: ok ? t.successText : t.errorText,
+      }}>
+        {ok ? "✓" : "✕"} {toast?.msg}
+      </div>
+    </MotionToast>
   )
 }
 
@@ -145,9 +148,9 @@ export default function Patients() {
                   onFocus={e=>e.target.style.borderColor=t.accent} onBlur={e=>e.target.style.borderColor=t.border} />
               </div>
             ))}
-            <button onClick={addPatient} disabled={loading||!name.trim()} style={{ background:t.accent,border:"none",borderRadius:8,padding:"10px 20px",fontSize:14,fontWeight:700,color:"#fff",cursor:"pointer",whiteSpace:"nowrap",opacity:loading||!name.trim()?0.5:1,marginTop:isMobile?4:0 }}>
+            <MotionButton onClick={addPatient} disabled={loading||!name.trim()} style={{ background:t.accent,border:"none",borderRadius:8,padding:"10px 20px",fontSize:14,fontWeight:700,color:"#fff",whiteSpace:"nowrap",opacity:loading||!name.trim()?0.5:1,marginTop:isMobile?4:0,fontFamily:"inherit" }}>
               {loading ? "Salvando..." : "+ Adicionar"}
-            </button>
+            </MotionButton>
           </div>
           {error && <div style={{ background:t.errorBg,border:`1px solid ${t.errorBorder}`,color:t.errorText,borderRadius:8,padding:"10px 14px",fontSize:13,marginTop:14 }}>{error}</div>}
         </div>
@@ -191,9 +194,9 @@ export default function Patients() {
               {!query && <p style={{ fontSize:13,color:t.textDisabled,margin:0 }}>Use o formulário acima para adicionar o primeiro.</p>}
             </div>
           ) : isMobile ? (
-            <div style={{ display:"flex",flexDirection:"column",gap:10 }}>
+            <MotionList style={{ display:"flex",flexDirection:"column",gap:10 }}>
               {displayed.map(p=>(
-                <div key={p.id} style={{ background:t.bgInset, borderRadius:10, padding:"14px 16px", display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+                <MotionItem key={p.id}><div style={{ background:t.bgInset, borderRadius:10, padding:"14px 16px", display:"flex", justifyContent:"space-between", alignItems:"center" }}>
                   <div style={{ display:"flex",flexDirection:"column",gap:3,flex:1,minWidth:0 }}>
                     <span onClick={()=>navigate(`/patients/${p.id}`)} style={{ fontWeight:700,color:t.accent,fontSize:15,cursor:"pointer" }}>{p.name}</span>
                     {p.phone && <span style={{ fontSize:13,color:t.textGhost }}>{p.phone}</span>}
@@ -209,9 +212,9 @@ export default function Patients() {
                       <button onClick={()=>setDeleteConfirm(p.id)} style={{ background:"transparent",border:`1px solid ${t.borderStrong}`,color:t.textFaint,borderRadius:6,padding:"6px 12px",fontSize:12,cursor:"pointer" }}>Excluir</button>
                     ) : null}
                   </div>
-                </div>
+                </div></MotionItem>
               ))}
-            </div>
+            </MotionList>
           ) : (
             <table style={{ width:"100%",borderCollapse:"collapse" }}>
               <thead>

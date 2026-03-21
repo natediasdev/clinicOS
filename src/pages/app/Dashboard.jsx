@@ -1,4 +1,6 @@
 import { useEffect, useState, useRef } from "react"
+import { motion, AnimatePresence } from "framer-motion"
+import { MotionToast, MotionCard, MotionList, MotionItem } from "../../components/ui/MotionComponents"
 import { supabase } from "../../supabaseClient"
 import { useAuth } from "../../context/AuthContext"
 import { useTheme } from "../../context/ThemeContext"
@@ -211,10 +213,10 @@ function NextAppointmentsList({ items, t }) {
           <span style={{ fontSize:32 }}>📅</span>
           <p style={{ fontSize:14, color:t.textGhost, margin:0, fontWeight:600 }}>Nenhum agendamento pendente</p>
         </div>
-      ) : items.map(appt => {
+      ) : <MotionList>{items.map(appt => {
         const st = STATUS_STYLE[appt.status]??STATUS_STYLE.scheduled
         return (
-          <div key={appt.id} style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"12px 0", borderBottom:`1px solid ${t.bgInset}` }}>
+          <MotionItem key={appt.id}><div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"12px 0", borderBottom:`1px solid ${t.bgInset}` }}>
             <div style={{ display:"flex", flexDirection:"column", gap:2 }}>
               <span style={{ fontSize:16, fontWeight:700, color:t.textPrimary }}>{formatTime(appt.datetime)}</span>
               <span style={{ fontSize:11, color:t.textGhost, textTransform:"capitalize" }}>{formatDate(appt.datetime)}</span>
@@ -223,9 +225,9 @@ function NextAppointmentsList({ items, t }) {
               <span style={{ fontSize:13, fontWeight:600, color:t.textBody }}>{appt.patientName??"—"}</span>
               <span style={{ fontSize:11, fontWeight:600, padding:"3px 10px", borderRadius:20, color:st.color, background:st.bg }}>{st.label}</span>
             </div>
-          </div>
+          </div></MotionItem>
         )
-      })}
+      })}</MotionList>
     </div>
   )
 }
@@ -264,11 +266,17 @@ export default function Dashboard() {
         {/* ── Métricas ── */}
         <div style={{ display:"grid", gridTemplateColumns: isMobile?"1fr 1fr":"repeat(5,1fr)", gap:12, marginBottom:20 }}>
           {d.loading ? [1,2,3,4,5].map(i=><Skeleton key={i} h={88} t={t}/>) : <>
-            <MetricCard t={t} label="Pacientes ativos"   value={d.totalPatients}           sub="total cadastrado"       accent="#3b82f6"/>
-            <MetricCard t={t} label="Agendamentos hoje"  value={d.todayAppointments}        sub="excluindo cancelados"   accent="#8b5cf6"/>
-            <MetricCard t={t} label="Próximos na fila"   value={d.nextAppointments.length}  sub="aguardando"             accent="#f59e0b"/>
-            <MetricCard t={t} label="Ocupação semanal"   value={`${d.weekOccupancy??0}%`}   sub="desta semana"           accent="#22c55e"/>
-            <MetricCard t={t} label="Faltas esta semana" value={d.weekNoShow??0}            sub="não compareceram"       accent="#ef4444"/>
+            {[
+              { label:"Pacientes ativos",   value:d.totalPatients,          sub:"total cadastrado",     accent:"#3b82f6" },
+              { label:"Agendamentos hoje",  value:d.todayAppointments,       sub:"excluindo cancelados", accent:"#8b5cf6" },
+              { label:"Próximos na fila",   value:d.nextAppointments.length, sub:"aguardando",           accent:"#f59e0b" },
+              { label:"Ocupação semanal",   value:`${d.weekOccupancy??0}%`,  sub:"desta semana",         accent:"#22c55e" },
+              { label:"Faltas esta semana", value:d.weekNoShow??0,           sub:"não compareceram",     accent:"#ef4444" },
+            ].map((m, i) => (
+              <MotionCard key={m.label} delay={i * 0.06}>
+                <MetricCard t={t} {...m} />
+              </MotionCard>
+            ))}
           </>}
         </div>
 

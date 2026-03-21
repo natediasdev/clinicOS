@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react"
+import { MotionToast } from "../../components/ui/MotionComponents"
 import { supabase } from "../../supabaseClient"
 import { useAuth } from "../../context/AuthContext"
 import { useTheme } from "../../context/ThemeContext"
@@ -56,15 +57,15 @@ export default function ClinicProfile() {
 
   return (
     <AppLayout>
-      {toast && (
-        <div style={{ position:"fixed",bottom:24,right:24,zIndex:999,border:"1px solid",borderRadius:10,padding:"12px 20px",fontSize:14,fontWeight:600,boxShadow:"0 8px 24px rgba(0,0,0,0.2)",
-          background: toast.type==="success"?t.successBg:t.errorBg,
-          borderColor: toast.type==="success"?t.successBorder:t.errorBorder,
-          color: toast.type==="success"?t.successText:t.errorText,
+      <MotionToast toast={toast}>
+        <div style={{ border:"1px solid",borderRadius:10,padding:"12px 20px",fontSize:14,fontWeight:600,boxShadow:"0 8px 24px rgba(0,0,0,0.2)",
+          background: toast?.type==="success"?t.successBg:t.errorBg,
+          borderColor: toast?.type==="success"?t.successBorder:t.errorBorder,
+          color: toast?.type==="success"?t.successText:t.errorText,
         }}>
-          {toast.type==="success"?"✓":"✕"} {toast.msg}
+          {toast?.type==="success"?"✓":"✕"} {toast?.msg}
         </div>
-      )}
+      </MotionToast>
 
       <div style={{ color:t.textBody, fontFamily:"'DM Sans','Segoe UI',sans-serif" }}>
         <header style={{ marginBottom: isMobile ? 16 : 32 }}>

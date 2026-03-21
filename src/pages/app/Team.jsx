@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react"
+import { MotionToast, MotionList, MotionItem } from "../../components/ui/MotionComponents"
 import { supabase } from "../../supabaseClient"
 import { useAuth } from "../../context/AuthContext"
 import { useTheme } from "../../context/ThemeContext"
@@ -164,7 +165,7 @@ export default function Team() {
             </div>
           ) : isMobile ? (
             <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-              {members.map(m => (
+              <MotionList>{members.map(m => (
                 <div key={m.id} style={{ background: t.bgInset, borderRadius: 10, padding: "14px 16px", display: "flex", flexDirection: "column", gap: 10 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                     <div style={{ width: 38, height: 38, borderRadius: "50%", background: (ROLE_CONFIG[m.role]?.color ?? "#64748b") + "22", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, fontWeight: 700, color: ROLE_CONFIG[m.role]?.color ?? "#64748b", flexShrink: 0 }}>
@@ -199,7 +200,7 @@ export default function Team() {
                 ))}</tr>
               </thead>
               <tbody>
-                {members.map(m => (
+                <MotionList>{members.map(m => (
                   <tr key={m.id} style={{ borderBottom: `1px solid ${t.bgInset}` }}>
                     <td style={{ padding: "14px 12px" }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 10 }}>

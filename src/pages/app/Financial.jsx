@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react"
+import { MotionToast, MotionModal, MotionCard } from "../../components/ui/MotionComponents"
 import { supabase } from "../../supabaseClient"
 import { useAuth } from "../../context/AuthContext"
 import { useTheme } from "../../context/ThemeContext"
@@ -6,6 +7,7 @@ import AppLayout from "../AppLayout"
 import RevenueChart from "../../components/financial/RevenueChart"
 import { Button, Input } from "../../components/ui"
 import { STATUS_COLORS, getStatusConfig } from "../../config/statusColors"
+import { MotionModal } from "../../components/ui/MotionComponents"
 
 // ─── Constantes ───────────────────────────────────────────────────────────────
 
@@ -134,8 +136,7 @@ function PaymentModal({ onClose, onSave, clinicId }) {
   const finalAmount = (parseFloat(amount) || 0) - (parseFloat(discount) || 0)
 
   return (
-    <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.7)", display:"flex", alignItems:"center", justifyContent:"center", zIndex:100, padding:20 }}
-      onClick={e=>e.target===e.currentTarget&&onClose()}>
+    <MotionModal open={true} onClose={onClose} maxWidth={460}>
       <div style={{ background:t.bgSidebar, border:`1px solid ${t.border}`, borderRadius:16, width:"100%", maxWidth:460, display:"flex", flexDirection:"column", maxHeight:"90vh", overflowY:"auto" }}>
 
         <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"20px 24px", borderBottom:`1px solid ${t.border}` }}>
@@ -235,7 +236,7 @@ function PaymentModal({ onClose, onSave, clinicId }) {
           </Button>
         </div>
       </div>
-    </div>
+    </MotionModal>
   )
 }
 
@@ -386,10 +387,16 @@ export default function Financial() {
 
         {/* Cards de métricas */}
         <div style={{ display:"grid", gridTemplateColumns: isMobile?"1fr 1fr":"repeat(4,1fr)", gap: isMobile?8:16, marginBottom: isMobile?16:24 }}>
-          <MetricCard label="Total recebido"   value={formatCurrency(totalPaid)} sub={`${countPaid} pagamentos`} accent={STATUS_COLORS.paid.color} t={t} isMobile={isMobile} />
-          <MetricCard label="A receber"        value={formatCurrency(totalPend)} sub="pendentes"                 accent={STATUS_COLORS.pending.color} t={t} isMobile={isMobile} />
-          <MetricCard label="Total do período" value={formatCurrency(totalAll)}  sub="incl. pendentes"           accent={t.accent} t={t} isMobile={isMobile} />
-          <MetricCard label="Lançamentos"      value={payments.length}           sub="no período"                accent="#8b5cf6" t={t} isMobile={isMobile} />
+          {[
+            { label:"Total recebido",   value:formatCurrency(totalPaid), sub:`${countPaid} pagamentos`, accent:STATUS_COLORS.paid.color },
+            { label:"A receber",        value:formatCurrency(totalPend), sub:"pendentes",               accent:STATUS_COLORS.pending.color },
+            { label:"Total do período", value:formatCurrency(totalAll),  sub:"incl. pendentes",         accent:t.accent },
+            { label:"Lançamentos",      value:payments.length,           sub:"no período",              accent:"#8b5cf6" },
+          ].map((m, i) => (
+            <MotionCard key={m.label} delay={i * 0.06}>
+              <MetricCard {...m} t={t} isMobile={isMobile} />
+            </MotionCard>
+          ))}
         </div>
 
         {/* Gráfico de faturamento */}
