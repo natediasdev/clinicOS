@@ -48,7 +48,8 @@ function useIsMobile() {
 
 // ─── Toast ────────────────────────────────────────────────────────────────────
 
-function Toast({ toast, t }) {
+function Toast({ toast }) {
+  const { t } = useTheme()
   const ok = toast?.type === "success"
   return (
     <MotionToast toast={toast}>
