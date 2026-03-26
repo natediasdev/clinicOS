@@ -4,6 +4,7 @@ import { useAuth } from "../../context/AuthContext"
 import { useTheme } from "../../context/ThemeContext"
 import { supabase } from "../../supabaseClient"
 import AppLayout from "../AppLayout"
+import DayView from "../../components/DayView"
 import { Button, Input } from "../../components/ui"
 import { STATUS_COLORS, getStatusConfig } from "../../config/statusColors"
 
@@ -275,6 +276,7 @@ export default function Appointments() {
   const [fetching,       setFetching]       = useState(true)
   const [showModal,      setShowModal]      = useState(false)
   const [view,           setView]           = useState("list")
+  const [dayViewDate,    setDayViewDate]    = useState(new Date())
   const [filterStatus,   setFilterStatus]   = useState("all")
   const [toast,          setToast]          = useState(null)
   const [selectedDay,    setSelectedDay]    = useState(null)
@@ -430,8 +432,9 @@ export default function Appointments() {
           </div>
           <div style={{ display:"flex", gap:10, alignItems:"center", flexWrap:"wrap", width:isMobile?"100%":"auto" }}>
             <div style={s.viewToggle}>
-              <Button onClick={()=>setView("list")} variant={view==="list"?"primary":"ghost"} style={{ borderRadius:0, borderRight:"1px solid transparent" }}>☰ Lista</Button>
-              <Button onClick={()=>setView("calendar")} variant={view==="calendar"?"primary":"ghost"} style={{ borderRadius:0 }}>⊟ Calendário</Button>
+              <button onClick={()=>setView("list")} style={{ background:view==="list"?t.accent:"transparent", border:"none", borderRight:`1px solid ${t.border}`, color:view==="list"?"#fff":t.textMuted, padding:"8px 16px", fontSize:13, fontWeight:600, cursor:"pointer", display:"flex", alignItems:"center", gap:6 }}>☰ Lista</button>
+              <button onClick={()=>setView("calendar")} style={{ background:view==="calendar"?t.accent:"transparent", border:"none", borderRight:`1px solid ${t.border}`, color:view==="calendar"?"#fff":t.textMuted, padding:"8px 16px", fontSize:13, fontWeight:600, cursor:"pointer", display:"flex", alignItems:"center", gap:6 }}>⊟ Calendário</button>
+              <button onClick={()=>setView("day")} style={{ background:view==="day"?t.accent:"transparent", border:"none", color:view==="day"?"#fff":t.textMuted, padding:"8px 16px", fontSize:13, fontWeight:600, cursor:"pointer", display:"flex", alignItems:"center", gap:6 }}>📅 Dia</button>
             </div>
             <Button onClick={()=>setShowModal(true)} fullWidth={isMobile}>+ Novo agendamento</Button>
           </div>
@@ -567,8 +570,19 @@ export default function Appointments() {
               )}
             </div>
           </>
-        ) : (
+        ) : view === "calendar" ? (
           <CalendarView appointments={appointments} onDayClick={(date,appts)=>setSelectedDay({date,appts})} />
+        ) : (
+          <DayView
+            appointments={appointments}
+            patientMap={patientMap}
+            staffMap={staffMap}
+            onStatusChange={handleStatusChange}
+            onDelete={handleDelete}
+            selectedDate={dayViewDate}
+            onDateChange={setDayViewDate}
+            isMobile={isMobile}
+          />
         )}
       </div>
     </AppLayout>
