@@ -5,6 +5,16 @@ import { useTheme } from "../../context/ThemeContext"
 import { useNavigate } from "react-router-dom"
 import { Button, Input, Badge } from "../../components/ui"
 
+const SPECIALTIES = [
+  { id: "fisioterapia", label: "Fisioterapia", icon: "🦴" },
+  { id: "pilates", label: "Pilates", icon: "🧘" },
+  { id: "odontologia", label: "Odontologia", icon: "🦷" },
+  { id: "psicologia", label: "Psicologia", icon: "🧠" },
+  { id: "nutricao", label: "Nutrição", icon: "🥗" },
+  { id: "estetica", label: "Estética", icon: "✨" },
+  { id: "geral", label: "Clínica Geral", icon: "🏥" },
+]
+
 const STEPS = [
   { id:"clinic",      icon:"🏥", title:"Dê um nome à sua clínica",       desc:"Este nome aparecerá no sistema e será visto pela sua equipe." },
   { id:"patient",     icon:"🦷", title:"Adicione seu primeiro paciente",  desc:"Cadastre um paciente para começar a usar o sistema." },
@@ -15,13 +25,14 @@ const STEPS = [
 function StepClinic({ onNext, t }) {
   const { clinicId, refreshClinic } = useAuth()
   const [name, setName]       = useState("")
+  const [specialty, setSpecialty] = useState("geral")
   const [loading, setLoading] = useState(false)
   const [error, setError]     = useState(null)
 
   async function handleSubmit() {
     if (!name.trim()) return
     setLoading(true)
-    const { error } = await supabase.from("clinics").update({ name:name.trim(), updated_at:new Date().toISOString() }).eq("id",clinicId)
+    const { error } = await supabase.from("clinics").update({ name:name.trim(), specialty, updated_at:new Date().toISOString() }).eq("id",clinicId)
     setLoading(false)
     if (error) { setError(error.message); return }
     await refreshClinic()
@@ -40,6 +51,26 @@ function StepClinic({ onNext, t }) {
             onChange={e=>setName(e.target.value)} 
             onKeyDown={e=>e.key==="Enter"&&handleSubmit()}
           />
+        </div>
+        <div style={field}>
+          <label style={{ fontSize:13, fontWeight:600, color:t.textMuted }}>Especialidade da clínica</label>
+          <div style={{ display:"grid", gridTemplateColumns:"repeat(2, 1fr)", gap:8 }}>
+            {SPECIALTIES.map(sp=>(
+              <button
+                key={sp.id}
+                onClick={()=>setSpecialty(sp.id)}
+                style={{
+                  display:"flex", alignItems:"center", gap:10, padding:"12px 14px",
+                  background: specialty===sp.id ? `${t.accent}18` : t.bgInset,
+                  border: `1px solid ${specialty===sp.id ? t.accent : t.border}`,
+                  borderRadius:10, cursor:"pointer", transition:"all .15s",
+                }}
+              >
+                <span style={{ fontSize:18 }}>{sp.icon}</span>
+                <span style={{ fontSize:13, fontWeight:600, color: specialty===sp.id ? t.accent : t.textMuted }}>{sp.label}</span>
+              </button>
+            ))}
+          </div>
         </div>
       {error && <div style={errBox(t)}>{error}</div>}
       <Button 

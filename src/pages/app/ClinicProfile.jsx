@@ -6,6 +6,16 @@ import { useTheme } from "../../context/ThemeContext"
 import AppLayout from "../AppLayout"
 import { Button, Input, Card } from "../../components/ui"
 
+const SPECIALTIES = [
+  { id: "fisioterapia", label: "Fisioterapia", icon: "🦴" },
+  { id: "pilates", label: "Pilates", icon: "🧘" },
+  { id: "odontologia", label: "Odontologia", icon: "🦷" },
+  { id: "psicologia", label: "Psicologia", icon: "🧠" },
+  { id: "nutricao", label: "Nutrição", icon: "🥗" },
+  { id: "estetica", label: "Estética", icon: "✨" },
+  { id: "geral", label: "Clínica Geral", icon: "🏥" },
+]
+
 const PLAN_CONFIG = {
   free:    { label: "Free",    color: "#64748b", desc: "Até 50 pacientes · 1 usuário" },
   pro:     { label: "Pro",     color: "#3b82f6", desc: "Pacientes ilimitados · Até 5 usuários" },
@@ -15,7 +25,7 @@ const PLAN_CONFIG = {
 export default function ClinicProfile() {
   const { clinic, clinicId, user, refreshClinic } = useAuth()
   const { t } = useTheme()
-  const [name, setName] = useState(""); const [phone, setPhone] = useState(""); const [email, setEmail] = useState("")
+  const [name, setName] = useState(""); const [phone, setPhone] = useState(""); const [email, setEmail] = useState(""); const [specialty, setSpecialty] = useState("geral")
   const [loading, setLoading] = useState(false); const [toast, setToast] = useState(null)
   const [stats, setStats] = useState({ patients: null, appointments: null })
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 768)
@@ -26,7 +36,7 @@ export default function ClinicProfile() {
     return () => window.removeEventListener("resize", handleResize)
   }, [])
 
-  useEffect(() => { if (clinic) { setName(clinic.name??""); setPhone(clinic.phone??""); setEmail(clinic.email??"") } }, [clinic])
+  useEffect(() => { if (clinic) { setName(clinic.name??""); setPhone(clinic.phone??""); setEmail(clinic.email??""); setSpecialty(clinic.specialty??"geral") } }, [clinic])
 
   useEffect(() => {
     if (!clinicId) return
@@ -46,7 +56,7 @@ export default function ClinicProfile() {
     e.preventDefault()
     if (!name.trim()) return
     setLoading(true)
-    const { error } = await supabase.from("clinics").update({ name:name.trim(), phone:phone.trim()||null, email:email.trim()||null, updated_at: new Date().toISOString() }).eq("id",clinicId)
+    const { error } = await supabase.from("clinics").update({ name:name.trim(), phone:phone.trim()||null, email:email.trim()||null, specialty, updated_at: new Date().toISOString() }).eq("id",clinicId)
     setLoading(false)
     if (error) showToast(error.message,"error")
     else { await refreshClinic(); showToast("Perfil da clínica atualizado!") }
@@ -83,6 +93,27 @@ export default function ClinicProfile() {
                   <Input type={type} placeholder={ph} value={val} onChange={e=>setter(e.target.value)} required={lbl.includes("*")} />
                 </div>
               ))}
+              <div style={{ display:"flex",flexDirection:"column",gap:6 }}>
+                <label style={{ fontSize:13,fontWeight:600,color:t.textMuted }}>Especialidade</label>
+                <div style={{ display:"grid", gridTemplateColumns:"repeat(2, 1fr)", gap:8 }}>
+                  {SPECIALTIES.map(sp=>(
+                    <button
+                      key={sp.id}
+                      type="button"
+                      onClick={()=>setSpecialty(sp.id)}
+                      style={{
+                        display:"flex", alignItems:"center", gap:8, padding:"10px 12px",
+                        background: specialty===sp.id ? `${t.accent}18` : t.bgInset,
+                        border: `1px solid ${specialty===sp.id ? t.accent : t.border}`,
+                        borderRadius:8, cursor:"pointer", transition:"all .15s",
+                      }}
+                    >
+                      <span style={{ fontSize:16 }}>{sp.icon}</span>
+                      <span style={{ fontSize:12, fontWeight:600, color: specialty===sp.id ? t.accent : t.textMuted }}>{sp.label}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
               <div style={{ display:"flex",flexDirection:"column",gap:6 }}>
                 <label style={{ fontSize:13,fontWeight:600,color:t.textMuted }}>E-mail do administrador</label>
                 <Input type="text" value={user?.email??""} disabled style={{ opacity:0.5,cursor:"not-allowed" }} />
