@@ -1,10 +1,11 @@
 import { useEffect, useState, useRef } from "react"
+import { usePermissions } from "../../hooks/usePermissions"
+import DayView from "../../components/DayView"
 import { MotionToast, MotionModal, MotionList, MotionItem } from "../../components/ui/MotionComponents"
 import { useAuth } from "../../context/AuthContext"
 import { useTheme } from "../../context/ThemeContext"
 import { supabase } from "../../supabaseClient"
 import AppLayout from "../AppLayout"
-import DayView from "../../components/DayView"
 import { Button, Input } from "../../components/ui"
 import { STATUS_COLORS, getStatusConfig } from "../../config/statusColors"
 
@@ -49,8 +50,7 @@ function useIsMobile() {
 
 // ─── Toast ────────────────────────────────────────────────────────────────────
 
-function Toast({ toast }) {
-  const { t } = useTheme()
+function Toast({ toast, t }) {
   const ok = toast?.type === "success"
   return (
     <MotionToast toast={toast}>
@@ -265,18 +265,20 @@ function CalendarView({ appointments, onDayClick }) {
 // ─── Página principal ─────────────────────────────────────────────────────────
 
 export default function Appointments() {
-  const { clinicId } = useAuth()
+  const { clinicId, user } = useAuth()
+  const permissions = usePermissions()
   const { t }        = useTheme()
   const isMobile     = useIsMobile()
 
   const [appointments,   setAppointments]   = useState([])
+  const [staffProfile,   setStaffProfile]   = useState(null)   // perfil do staff logado (se não for admin)
+  const [dayViewDate,    setDayViewDate]    = useState(new Date())
   const [staffList,      setStaffList]      = useState([])
   const [patientMap,     setPatientMap]     = useState({})
   const [staffMap,       setStaffMap]       = useState({})
   const [fetching,       setFetching]       = useState(true)
   const [showModal,      setShowModal]      = useState(false)
-  const [view,           setView]           = useState("list")
-  const [dayViewDate,    setDayViewDate]    = useState(new Date())
+  const [view,           setView]           = useState("day")
   const [filterStatus,   setFilterStatus]   = useState("all")
   const [toast,          setToast]          = useState(null)
   const [selectedDay,    setSelectedDay]    = useState(null)
@@ -317,8 +319,28 @@ export default function Appointments() {
 
   async function fetchAll() {
     setFetching(true)
+
+    // Busca perfil do staff logado para filtro de agenda
+    let staffId = null
+    if (!permissions.isAdmin) {
+      const { data: profile } = await supabase
+        .from("profiles").select("id, role, clinic_id")
+        .eq("id", user?.id).single()
+      // Busca o staff vinculado ao perfil (por email)
+      if (profile) {
+        const { data: staffRow } = await supabase
+          .from("staff").select("id,name").eq("clinic_id", clinicId).is("deleted_at", null)
+          .limit(1).single()
+        if (staffRow) { staffId = staffRow.id; setStaffProfile(staffRow) }
+      }
+    }
+
+    let apptQuery = supabase.from("appointments").select("*").is("deleted_at",null).order("datetime",{ascending:true})
+    // Staff vê só os próprios agendamentos
+    if (staffId) apptQuery = apptQuery.eq("staff_id", staffId)
+
     const [apptRes, staffRes] = await Promise.all([
-      supabase.from("appointments").select("*").is("deleted_at",null).order("datetime",{ascending:true}),
+      apptQuery,
       supabase.from("staff").select("id,name").is("deleted_at",null),
     ])
     const appts = apptRes.data ?? []
@@ -428,19 +450,34 @@ export default function Appointments() {
         <header style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:isMobile?16:24, gap:16, flexWrap:"wrap" }}>
           <div>
             <h1 style={{ fontSize:isMobile?22:28, fontWeight:800, margin:0, color:t.textPrimary, letterSpacing:"-0.5px" }}>Agendamentos</h1>
-            <p style={{ margin:"4px 0 0", fontSize:13, color:t.textFaint }}>Gerencie a agenda da clínica</p>
+            <p style={{ margin:"4px 0 0", fontSize:13, color:t.textFaint }}>
+            {!permissions.isAdmin && staffProfile
+              ? `Agenda de ${staffProfile.name}`
+              : "Agenda da clínica"}
+          </p>
           </div>
           <div style={{ display:"flex", gap:10, alignItems:"center", flexWrap:"wrap", width:isMobile?"100%":"auto" }}>
             <div style={s.viewToggle}>
-              <button onClick={()=>setView("list")} style={{ background:view==="list"?t.accent:"transparent", border:"none", borderRight:`1px solid ${t.border}`, color:view==="list"?"#fff":t.textMuted, padding:"8px 16px", fontSize:13, fontWeight:600, cursor:"pointer", display:"flex", alignItems:"center", gap:6 }}>☰ Lista</button>
-              <button onClick={()=>setView("calendar")} style={{ background:view==="calendar"?t.accent:"transparent", border:"none", borderRight:`1px solid ${t.border}`, color:view==="calendar"?"#fff":t.textMuted, padding:"8px 16px", fontSize:13, fontWeight:600, cursor:"pointer", display:"flex", alignItems:"center", gap:6 }}>⊟ Calendário</button>
-              <button onClick={()=>setView("day")} style={{ background:view==="day"?t.accent:"transparent", border:"none", color:view==="day"?"#fff":t.textMuted, padding:"8px 16px", fontSize:13, fontWeight:600, cursor:"pointer", display:"flex", alignItems:"center", gap:6 }}>📅 Dia</button>
+              <Button onClick={()=>setView("day")}      variant={view==="day"?"primary":"ghost"}      style={{ borderRadius:0, borderRight:"1px solid transparent" }}>📅 Dia</Button>
+              <Button onClick={()=>setView("list")}     variant={view==="list"?"primary":"ghost"}     style={{ borderRadius:0, borderRight:"1px solid transparent" }}>☰ Lista</Button>
+              <Button onClick={()=>setView("calendar")} variant={view==="calendar"?"primary":"ghost"} style={{ borderRadius:0 }}>⊟ Mês</Button>
             </div>
             <Button onClick={()=>setShowModal(true)} fullWidth={isMobile}>+ Novo agendamento</Button>
           </div>
         </header>
 
-        {view === "list" ? (
+        {view === "day" ? (
+          <DayView
+            appointments={appointments}
+            patientMap={patientMap}
+            staffMap={staffMap}
+            onStatusChange={handleStatusChange}
+            onDelete={handleDelete}
+            selectedDate={dayViewDate}
+            onDateChange={setDayViewDate}
+            isMobile={isMobile}
+          />
+        ) : view === "list" ? (
           <>
             <div style={{ display:"flex", gap:8, marginBottom:12, overflowX:"auto", flexWrap:isMobile?"nowrap":"wrap", paddingBottom:isMobile?4:0 }}>
               <button
@@ -570,19 +607,8 @@ export default function Appointments() {
               )}
             </div>
           </>
-        ) : view === "calendar" ? (
-          <CalendarView appointments={appointments} onDayClick={(date,appts)=>setSelectedDay({date,appts})} />
         ) : (
-          <DayView
-            appointments={appointments}
-            patientMap={patientMap}
-            staffMap={staffMap}
-            onStatusChange={handleStatusChange}
-            onDelete={handleDelete}
-            selectedDate={dayViewDate}
-            onDateChange={setDayViewDate}
-            isMobile={isMobile}
-          />
+          <CalendarView appointments={appointments} onDayClick={(date,appts)=>setSelectedDay({date,appts})} />
         )}
       </div>
     </AppLayout>
