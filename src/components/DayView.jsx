@@ -271,26 +271,18 @@ export default function DayView({
 
       {/* ── Grade de horários ── */}
       <div style={{ background: t.bgCard, borderRadius: 12, overflow: "hidden" }}>
-        {dayAppts.length === 0 ? (
+        {dayAppts.length === 0 && (
           <div style={{
-            textAlign: "center", padding: "56px 24px",
-            display: "flex", flexDirection: "column", alignItems: "center", gap: 10,
+            padding: "14px 20px", borderBottom: `1px solid ${t.bgInset}`,
+            display: "flex", alignItems: "center", gap: 8,
+            background: `${t.accent}08`,
           }}>
-            <svg width="40" height="40" viewBox="0 0 24 24" fill="none"
-              stroke={t.textDisabled} strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round">
-              <rect x="3" y="4" width="18" height="18" rx="2"/>
-              <line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/>
-              <line x1="3" y1="10" x2="21" y2="10"/>
-            </svg>
-            <p style={{ fontSize:15, color:t.textGhost, margin:0, fontWeight:600 }}>
-              Sem agendamentos neste dia
-            </p>
-            <p style={{ fontSize:13, color:t.textDisabled, margin:0 }}>
-              Clique em "+ Novo agendamento" para agendar
-            </p>
+            <span style={{ fontSize:12, color:t.textFaint }}>
+              Nenhum agendamento neste dia — clique em "+ Novo agendamento" para agendar
+            </span>
           </div>
-        ) : (
-          HOURS.map(hour => {
+        )}
+        {HOURS.map(hour => {
             const apptAtHour = dayAppts.filter(a => getHourFromDate(a.datetime) === hour)
             const hasAppt    = apptAtHour.length > 0
             const isPast     = isToday && hour < new Date().getHours()
@@ -349,8 +341,8 @@ export default function DayView({
                 </div>
               </div>
             )
-          })
-        )}
+          })}
+        
       </div>
     </div>
   )
