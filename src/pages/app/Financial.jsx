@@ -334,6 +334,29 @@ export default function Financial() {
     if (!error) { fetchPayments(); showToast("Lançamento removido.", "error") }
   }
 
+  async function handleSendCharge(payment) {
+    if (!payment.patient_id) {
+      showToast("Paciente não encontrado", "error")
+      return
+    }
+    showToast("Enviando cobrança...", "info")
+    const { data, error } = await supabase.functions.invoke('send-email', {
+      body: {
+        type: 'charge',
+        patient_id: payment.patient_id,
+        clinic_id: clinicId,
+        payment_id: payment.id
+      }
+    })
+    if (error) {
+      showToast("Erro ao enviar: " + error.message, "error")
+    } else if (data?.success) {
+      showToast("Cobrança enviada com sucesso!", "success")
+    } else {
+      showToast(data?.error || "Erro ao enviar cobrança", "error")
+    }
+  }
+
   useEffect(() => { fetchPayments() }, [period])
 
   // Métricas calculadas
@@ -473,13 +496,18 @@ export default function Financial() {
                     </div>
                     {patientMap[p.patient_id] && <span style={{ fontSize:13, color:t.textGhost }}>👤 {patientMap[p.patient_id]}</span>}
                     {p.description && <span style={{ fontSize:13, color:t.textGhost }}>{p.description}</span>}
-                    <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+                      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
                       <span style={{ fontSize:12, color:t.textDisabled }}>{met?.icon} {met?.label} · {formatDate(p.created_at)}</span>
                       <div style={{ display:"flex", gap:6 }}>
                         {p.status==="pending" && (
-                          <Button onClick={()=>handleStatusChange(p.id,"paid")} size="sm" style={{ background:t.successBg, border:`1px solid ${t.successBorder}`, color:t.successText }}>
-                            Marcar pago
-                          </Button>
+                          <>
+                            <Button onClick={()=>handleSendCharge(p)} size="sm" variant="secondary" title="Enviar cobrança por email">
+                              ✉️
+                            </Button>
+                            <Button onClick={()=>handleStatusChange(p.id,"paid")} size="sm" style={{ background:t.successBg, border:`1px solid ${t.successBorder}`, color:t.successText }}>
+                              Marcar pago
+                            </Button>
+                          </>
                         )}
                         <Button onClick={()=>handleDelete(p.id)} size="sm" variant="ghost">✕</Button>
                       </div>
@@ -526,9 +554,14 @@ export default function Financial() {
                       <td style={{ padding:"14px 12px", textAlign:"right" }}>
                         <div style={{ display:"flex", gap:6, justifyContent:"flex-end" }}>
                           {p.status==="pending" && (
-                            <Button onClick={()=>handleStatusChange(p.id,"paid")} size="sm" style={{ background:t.successBg, border:`1px solid ${t.successBorder}`, color:t.successText }}>
-                              ✓ Pago
-                            </Button>
+                            <>
+                              <Button onClick={()=>handleSendCharge(p)} size="sm" variant="secondary" title="Enviar cobrança por email">
+                                ✉️
+                              </Button>
+                              <Button onClick={()=>handleStatusChange(p.id,"paid")} size="sm" style={{ background:t.successBg, border:`1px solid ${t.successBorder}`, color:t.successText }}>
+                                ✓ Pago
+                              </Button>
+                            </>
                           )}
                           <Button onClick={()=>handleDelete(p.id)} size="sm" variant="ghost">Remover</Button>
                         </div>
