@@ -3,7 +3,7 @@ import { supabase } from "../../supabaseClient"
 import { useAuth } from "../../context/AuthContext"
 import { useTheme } from "../../context/ThemeContext"
 import { useNavigate } from "react-router-dom"
-import { Button, Input, Badge } from "../../components/ui"
+import { Button, Input } from "../../components/ui"
 
 const SPECIALTIES = [
   { id: "fisioterapia", label: "Fisioterapia", icon: "🦴" },
