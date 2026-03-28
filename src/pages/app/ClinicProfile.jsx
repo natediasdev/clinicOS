@@ -25,7 +25,7 @@ const PLAN_CONFIG = {
 export default function ClinicProfile() {
   const { clinic, clinicId, user, refreshClinic } = useAuth()
   const { t } = useTheme()
-  const [name, setName] = useState(""); const [phone, setPhone] = useState(""); const [email, setEmail] = useState(""); const [specialty, setSpecialty] = useState("geral")
+  const [name, setName] = useState(""); const [phone, setPhone] = useState(""); const [email, setEmail] = useState(""); const [specialty, setSpecialty] = useState("geral"); const [senderEmail, setSenderEmail] = useState("")
   const [loading, setLoading] = useState(false); const [toast, setToast] = useState(null)
   const [stats, setStats] = useState({ patients: null, appointments: null })
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 768)
@@ -36,7 +36,7 @@ export default function ClinicProfile() {
     return () => window.removeEventListener("resize", handleResize)
   }, [])
 
-  useEffect(() => { if (clinic) { setName(clinic.name??""); setPhone(clinic.phone??""); setEmail(clinic.email??""); setSpecialty(clinic.specialty??"geral") } }, [clinic])
+  useEffect(() => { if (clinic) { setName(clinic.name??""); setPhone(clinic.phone??""); setEmail(clinic.email??""); setSpecialty(clinic.specialty??"geral"); setSenderEmail(clinic.sender_email??"") } }, [clinic])
 
   useEffect(() => {
     if (!clinicId) return
@@ -56,7 +56,7 @@ export default function ClinicProfile() {
     e.preventDefault()
     if (!name.trim()) return
     setLoading(true)
-    const { error } = await supabase.from("clinics").update({ name:name.trim(), phone:phone.trim()||null, email:email.trim()||null, specialty, updated_at: new Date().toISOString() }).eq("id",clinicId)
+    const { error } = await supabase.from("clinics").update({ name:name.trim(), phone:phone.trim()||null, email:email.trim()||null, specialty, sender_email:senderEmail.trim()||null, updated_at: new Date().toISOString() }).eq("id",clinicId)
     setLoading(false)
     if (error) showToast(error.message,"error")
     else { await refreshClinic(); showToast("Perfil da clínica atualizado!") }
@@ -118,6 +118,11 @@ export default function ClinicProfile() {
                 <label style={{ fontSize:13,fontWeight:600,color:t.textMuted }}>E-mail do administrador</label>
                 <Input type="text" value={user?.email??""} disabled style={{ opacity:0.5,cursor:"not-allowed" }} />
                 <span style={{ fontSize:11,color:t.textDisabled }}>Este é o e-mail da sua conta. Não pode ser alterado aqui.</span>
+              </div>
+              <div style={{ display:"flex",flexDirection:"column",gap:6 }}>
+                <label style={{ fontSize:13,fontWeight:600,color:t.textMuted }}>E-mail para envio de cobranças</label>
+                <Input type="email" placeholder="cobranca@seudominio.com" value={senderEmail} onChange={e=>setSenderEmail(e.target.value)} />
+                <span style={{ fontSize:11,color:t.textDisabled }}>E-mail verificado no Resend para envio automático de cobranças.</span>
               </div>
               <Button type="submit" disabled={loading||!name.trim()} loading={loading} fullWidth>
                 {loading ? "Salvando..." : "Salvar alterações"}
