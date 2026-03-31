@@ -6,7 +6,7 @@ import { useTheme } from "../../context/ThemeContext"
 import AppLayout from "../AppLayout"
 import { Button, Input, Card } from "../../components/ui"
 
-const SPECIALTIES = [
+const DEFAULT_SPECIALTIES = [
   { id: "fisioterapia", label: "Fisioterapia", icon: "🦴" },
   { id: "pilates", label: "Pilates", icon: "🧘" },
   { id: "odontologia", label: "Odontologia", icon: "🦷" },
@@ -26,6 +26,7 @@ export default function ClinicProfile() {
   const { clinic, clinicId, user, refreshClinic } = useAuth()
   const { t } = useTheme()
   const [name, setName] = useState(""); const [phone, setPhone] = useState(""); const [email, setEmail] = useState(""); const [specialty, setSpecialty] = useState("geral"); const [senderEmail, setSenderEmail] = useState("")
+  const [selectedSpecialties, setSelectedSpecialties] = useState([])
   const [loading, setLoading] = useState(false); const [toast, setToast] = useState(null)
   const [stats, setStats] = useState({ patients: null, appointments: null })
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 768)
@@ -36,7 +37,14 @@ export default function ClinicProfile() {
     return () => window.removeEventListener("resize", handleResize)
   }, [])
 
-  useEffect(() => { if (clinic) { setName(clinic.name??""); setPhone(clinic.phone??""); setEmail(clinic.email??""); setSpecialty(clinic.specialty??"geral"); setSenderEmail(clinic.sender_email??"") } }, [clinic])
+  useEffect(() => { if (clinic) { 
+    setName(clinic.name??""); 
+    setPhone(clinic.phone??""); 
+    setEmail(clinic.email??""); 
+    setSpecialty(clinic.specialty??"geral"); 
+    setSenderEmail(clinic.sender_email??"");
+    setSelectedSpecialties(Array.isArray(clinic.specialties) ? clinic.specialties : []);
+  } }, [clinic])
 
   useEffect(() => {
     if (!clinicId) return
@@ -52,11 +60,19 @@ export default function ClinicProfile() {
 
   function showToast(msg, type="success") { setToast({msg,type}); setTimeout(()=>setToast(null),3000) }
 
+  function toggleSpecialty(sp) {
+    if (selectedSpecialties.includes(sp)) {
+      setSelectedSpecialties(selectedSpecialties.filter(s => s !== sp))
+    } else {
+      setSelectedSpecialties([...selectedSpecialties, sp])
+    }
+  }
+
   async function handleSave(e) {
     e.preventDefault()
     if (!name.trim()) return
     setLoading(true)
-    const { error } = await supabase.from("clinics").update({ name:name.trim(), phone:phone.trim()||null, email:email.trim()||null, specialty, sender_email:senderEmail.trim()||null, updated_at: new Date().toISOString() }).eq("id",clinicId)
+    const { error } = await supabase.from("clinics").update({ name:name.trim(), phone:phone.trim()||null, email:email.trim()||null, specialty, sender_email:senderEmail.trim()||null, specialties: selectedSpecialties, updated_at: new Date().toISOString() }).eq("id",clinicId)
     setLoading(false)
     if (error) showToast(error.message,"error")
     else { await refreshClinic(); showToast("Perfil da clínica atualizado!") }
@@ -94,22 +110,22 @@ export default function ClinicProfile() {
                 </div>
               ))}
               <div style={{ display:"flex",flexDirection:"column",gap:6 }}>
-                <label style={{ fontSize:13,fontWeight:600,color:t.textMuted }}>Especialidade</label>
+                <label style={{ fontSize:13,fontWeight:600,color:t.textMuted }}>Especialidades (selecione uma ou mais)</label>
                 <div style={{ display:"grid", gridTemplateColumns:"repeat(2, 1fr)", gap:8 }}>
-                  {SPECIALTIES.map(sp=>(
+                  {DEFAULT_SPECIALTIES.map(sp=>(
                     <button
                       key={sp.id}
                       type="button"
-                      onClick={()=>setSpecialty(sp.id)}
+                      onClick={()=>toggleSpecialty(sp.label)}
                       style={{
                         display:"flex", alignItems:"center", gap:8, padding:"10px 12px",
-                        background: specialty===sp.id ? `${t.accent}18` : t.bgInset,
-                        border: `1px solid ${specialty===sp.id ? t.accent : t.border}`,
+                        background: selectedSpecialties.includes(sp.label) ? `${t.accent}18` : t.bgInset,
+                        border: `1px solid ${selectedSpecialties.includes(sp.label) ? t.accent : t.border}`,
                         borderRadius:8, cursor:"pointer", transition:"all .15s",
                       }}
                     >
                       <span style={{ fontSize:16 }}>{sp.icon}</span>
-                      <span style={{ fontSize:12, fontWeight:600, color: specialty===sp.id ? t.accent : t.textMuted }}>{sp.label}</span>
+                      <span style={{ fontSize:12, fontWeight:600, color: selectedSpecialties.includes(sp.label) ? t.accent : t.textMuted }}>{sp.label}</span>
                     </button>
                   ))}
                 </div>

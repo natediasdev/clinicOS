@@ -25,14 +25,22 @@ const STEPS = [
 function StepClinic({ onNext, t }) {
   const { clinicId, refreshClinic } = useAuth()
   const [name, setName]       = useState("")
-  const [specialty, setSpecialty] = useState("geral")
+  const [selectedSpecialties, setSelectedSpecialties] = useState([])
   const [loading, setLoading] = useState(false)
   const [error, setError]     = useState(null)
+
+  function toggleSpecialty(spLabel) {
+    if (selectedSpecialties.includes(spLabel)) {
+      setSelectedSpecialties(selectedSpecialties.filter(s => s !== spLabel))
+    } else {
+      setSelectedSpecialties([...selectedSpecialties, spLabel])
+    }
+  }
 
   async function handleSubmit() {
     if (!name.trim()) return
     setLoading(true)
-    const { error } = await supabase.from("clinics").update({ name:name.trim(), specialty, updated_at:new Date().toISOString() }).eq("id",clinicId)
+    const { error } = await supabase.from("clinics").update({ name:name.trim(), specialties:selectedSpecialties, updated_at:new Date().toISOString() }).eq("id",clinicId)
     setLoading(false)
     if (error) { setError(error.message); return }
     await refreshClinic()
@@ -53,21 +61,21 @@ function StepClinic({ onNext, t }) {
           />
         </div>
         <div style={field}>
-          <label style={{ fontSize:13, fontWeight:600, color:t.textMuted }}>Especialidade da clínica</label>
+          <label style={{ fontSize:13, fontWeight:600, color:t.textMuted }}>Especialidades da clínica (selecione uma ou mais)</label>
           <div style={{ display:"grid", gridTemplateColumns:"repeat(2, 1fr)", gap:8 }}>
             {SPECIALTIES.map(sp=>(
               <button
                 key={sp.id}
-                onClick={()=>setSpecialty(sp.id)}
+                onClick={()=>toggleSpecialty(sp.label)}
                 style={{
                   display:"flex", alignItems:"center", gap:10, padding:"12px 14px",
-                  background: specialty===sp.id ? `${t.accent}18` : t.bgInset,
-                  border: `1px solid ${specialty===sp.id ? t.accent : t.border}`,
+                  background: selectedSpecialties.includes(sp.label) ? `${t.accent}18` : t.bgInset,
+                  border: `1px solid ${selectedSpecialties.includes(sp.label) ? t.accent : t.border}`,
                   borderRadius:10, cursor:"pointer", transition:"all .15s",
                 }}
               >
                 <span style={{ fontSize:18 }}>{sp.icon}</span>
-                <span style={{ fontSize:13, fontWeight:600, color: specialty===sp.id ? t.accent : t.textMuted }}>{sp.label}</span>
+                <span style={{ fontSize:13, fontWeight:600, color: selectedSpecialties.includes(sp.label) ? t.accent : t.textMuted }}>{sp.label}</span>
               </button>
             ))}
           </div>
