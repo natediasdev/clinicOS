@@ -45,10 +45,23 @@ function OnboardingRoute() {
 
 function SubscriptionRoute() {
   const { user, loading, clinic, subscriptionActive } = useAuth()
-  if (loading) return <LoadingScreen message="Verificando..." />
-  if (!user) return <Navigate to="/login" replace />
-  if (clinic?.plan !== "pro" && clinic?.plan !== "free") return <Navigate to="/dashboard" replace />
-  if (!subscriptionActive) return <SubscriptionBlocked />
+  
+  if (loading) {
+    return <LoadingScreen message="Carregando..." />
+  }
+  
+  if (!user) {
+    return <LoadingScreen message="Verificando sessão..." />
+  }
+  
+  if (clinic?.plan && clinic.plan !== "pro" && clinic.plan !== "free") {
+    return <Navigate to="/dashboard" replace />
+  }
+  
+  if (clinic?.plan === "pro" && !subscriptionActive) {
+    return <SubscriptionBlocked />
+  }
+  
   return <Subscription />
 }
 
