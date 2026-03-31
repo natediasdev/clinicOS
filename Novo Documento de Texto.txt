@@ -1,0 +1,30 @@
+
+DECLARE
+  v_clinic_id uuid;
+BEGIN
+  v_clinic_id := (NEW.raw_user_meta_data->>'clinic_id')::uuid;
+
+  -- Cria o profile
+  INSERT INTO public.profiles (id, clinic_id, role, onboarding_completed)
+  VALUES (
+    NEW.id,
+    v_clinic_id,
+    COALESCE(NEW.raw_user_meta_data->>'role', 'staff'),
+    CASE 
+      WHEN v_clinic_id IS NOT NULL THEN true
+      ELSE false
+    END
+  );
+
+  -- Se veio com clinic_id nos metadados (usuário convidado),
+  -- linka o user_id na tabela staff pelo email
+  IF v_clinic_id IS NOT NULL THEN
+    UPDATE public.staff
+    SET user_id = NEW.id
+    WHERE email = NEW.email
+    AND clinic_id = v_clinic_id
+    AND user_id IS NULL;
+  END IF;
+
+  RETURN NEW;
+END;

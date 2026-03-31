@@ -14,18 +14,20 @@ import { supabase } from "../supabaseClient"
  *   - 1 usuário (somente admin)
  *   - Sem equipe, sem prontuário, sem financeiro
  *   - Dashboard simplificado
+ *
+ * Plano Pro:
+ *   - Pacientes ilimitados
+ *   - Equipe completa
+ *   - Prontuário eletrônico
+ *   - Financeiro
+ *   - Dashboard completo
  */
 
 export const PLAN_PRICES = {
   pro: {
     monthly:    79,
-    quarterly:  Math.round(79 * 0.90),   // -10% → R$71/mês
-    semiannual: Math.round(79 * 0.85),   // -15% → R$67/mês
-  },
-  clinica: {
-    monthly:    199,
-    quarterly:  Math.round(199 * 0.90),  // -10% → R$179/mês
-    semiannual: Math.round(199 * 0.85),  // -15% → R$169/mês
+    quarterly:  Math.round(79 * 0.90 * 3),
+    semiannual: Math.round(79 * 0.85 * 6),
   },
 }
 
@@ -45,18 +47,6 @@ export const PLAN_CONFIG = {
   pro: {
     label:         "Pro",
     color:         "#3b82f6",
-    patient_limit: null,
-    staff_limit:   3,
-    features: {
-      hasTeam:          true,
-      hasRecords:       true,
-      hasFinancial:     true,
-      hasDashboardFull: true,
-    },
-  },
-  clinica: {
-    label:         "Clínica",
-    color:         "#8b5cf6",
     patient_limit: null,
     staff_limit:   999,
     features: {
@@ -84,7 +74,47 @@ export function usePlanLimits() {
   }
 
   function isPaid() {
-    return clinic?.plan === "pro" || clinic?.plan === "clinica"
+    return clinic?.plan === "pro"
+  }
+
+  function isOnTrial() {
+    if (!clinic?.trial_end) return false
+    return new Date(clinic.trial_end) > new Date()
+  }
+
+  function getTrialDaysRemaining() {
+    if (!clinic?.trial_end) return 0
+    const remaining = Math.ceil((new Date(clinic.trial_end) - new Date()) / (1000 * 60 * 60 * 24))
+    return Math.max(0, remaining)
+  }
+
+  async function checkSubscriptionStatus() {
+    if (!clinic) return { active: false, reason: "Clínica não encontrada." }
+    
+    if (isOnTrial()) {
+      return { active: true, status: 'trial', daysRemaining: getTrialDaysRemaining() }
+    }
+
+    if (!isPaid()) {
+      return { active: false, reason: "Plano free não possui assinatura." }
+    }
+
+    const { data: subscription } = await supabase
+      .from("subscriptions")
+      .select("*")
+      .eq("clinic_id", clinic.id)
+      .in("status", ["active", "trial"])
+      .single()
+
+    if (!subscription) {
+      return { active: false, reason: "Nenhuma assinatura ativa." }
+    }
+
+    if (subscription.status === "active") {
+      return { active: true, status: 'active', subscription }
+    }
+
+    return { active: false, reason: "Assinatura inativa." }
   }
 
   async function checkPatientLimit() {
@@ -119,5 +149,15 @@ export function usePlanLimits() {
     return PLAN_PRICES[plan]?.[cycle] ?? null
   }
 
-  return { checkPatientLimit, checkStaffLimit, planLabel, planFeatures, isFree, isPaid, getPriceForCycle }
+  function getMonthlyPrice(cycle = "monthly") {
+    const prices = PLAN_PRICES.pro
+    switch (cycle) {
+      case "monthly": return prices.monthly
+      case "quarterly": return Math.round(prices.quarterly / 3)
+      case "semiannual": return Math.round(prices.semiannual / 6)
+      default: return prices.monthly
+    }
+  }
+
+  return { checkPatientLimit, checkStaffLimit, planLabel, planFeatures, isFree, isPaid, isOnTrial, getTrialDaysRemaining, checkSubscriptionStatus, getPriceForCycle, getMonthlyPrice }
 }

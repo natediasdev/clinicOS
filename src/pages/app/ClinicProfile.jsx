@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react"
+import { Link } from "react-router-dom"
 import { MotionToast } from "../../components/ui/MotionComponents"
 import { supabase } from "../../supabaseClient"
 import { useAuth } from "../../context/AuthContext"
@@ -155,9 +156,9 @@ export default function ClinicProfile() {
               <p style={{ fontSize:13,color:t.textGhost,margin:"0 0 4px" }}>{plan.desc}</p>
               {clinic?.staff_limit && <p style={{ fontSize:12,color:t.textDisabled,margin:0 }}>Limite de staff: {clinic.staff_limit} usuários</p>}
               <div style={{ height:1,background:t.bgInset,margin:"16px 0" }} />
-              <a href="https://instagram.com/clinicos" target="_blank" rel="noopener noreferrer" style={{ textDecoration:"none" }}>
-                <Button variant="secondary" fullWidth>Fazer upgrade →</Button>
-              </a>
+              <Link to="/subscription" style={{ textDecoration: "none" }}>
+                <Button variant="secondary" fullWidth>Atualizar plano →</Button>
+              </Link>
             </Card>
 
             <Card padding={isMobile ? 16 : 24}>

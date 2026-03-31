@@ -75,7 +75,7 @@ const ALL_NAV_ITEMS = [
 ]
 
 export default function AppLayout({ children }) {
-  const { user, logout } = useAuth()
+  const { user, logout, clinic } = useAuth()
   const { t, mode, toggle } = useTheme()
   const permissions = usePermissions()
   const NAV_ITEMS = ALL_NAV_ITEMS.filter(item => permissions[item.permission])
@@ -83,6 +83,8 @@ export default function AppLayout({ children }) {
   const [loggingOut, setLoggingOut] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 768)
+
+  const showUpgradeBanner = clinic?.plan === "free" && !clinic?.trial_end
 
   useEffect(() => {
     function handleResize() {
@@ -135,9 +137,30 @@ export default function AppLayout({ children }) {
           alignItems: "center",
           justifyContent: "space-between",
         }}>
-          <span style={{ fontSize: 18, fontWeight: 800, color: t.textPrimary, letterSpacing: "-0.5px" }}>
-            Clinic<span style={{ color: t.accent }}>OS</span>
-          </span>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <span style={{ fontSize: 18, fontWeight: 800, color: t.textPrimary, letterSpacing: "-0.5px" }}>
+              Clinic<span style={{ color: t.accent }}>OS</span>
+            </span>
+            {showUpgradeBanner && (
+              <motion.span
+                initial={{ scale: 0.8, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                transition={{ delay: 0.2, type: "spring", stiffness: 500 }}
+                style={{
+                  background: "linear-gradient(135deg, #f59e0b 0%, #d97706 100%)",
+                  color: "#fff",
+                  fontSize: 8,
+                  fontWeight: 700,
+                  padding: "2px 6px",
+                  borderRadius: 99,
+                  textTransform: "uppercase",
+                  letterSpacing: "0.5px",
+                }}
+              >
+                Free
+              </motion.span>
+            )}
+          </div>
 
           <span style={{ fontSize: 14, fontWeight: 600, color: t.textMuted }}>
             {currentPage && currentPage.icon(t.textMuted)} <span style={{marginLeft:4}}>{currentPage?.label ?? ""}</span>
@@ -265,10 +288,29 @@ export default function AppLayout({ children }) {
           display: "flex", flexDirection: "column", flexShrink: 0,
           height: "100vh", overflowY: "auto",
         }}>
-          <div style={{ padding: "28px 24px 20px", borderBottom: `1px solid ${t.border}` }}>
+          <div style={{ padding: "28px 24px 20px", borderBottom: `1px solid ${t.border}`, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
             <span style={{ fontSize: 20, fontWeight: 800, color: t.textPrimary, letterSpacing: "-0.5px" }}>
               Clinic<span style={{ color: t.accent }}>OS</span>
             </span>
+            {showUpgradeBanner && (
+              <motion.span
+                initial={{ scale: 0.8, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                transition={{ delay: 0.2, type: "spring", stiffness: 500 }}
+                style={{
+                  background: "linear-gradient(135deg, #f59e0b 0%, #d97706 100%)",
+                  color: "#fff",
+                  fontSize: 9,
+                  fontWeight: 700,
+                  padding: "3px 8px",
+                  borderRadius: 99,
+                  textTransform: "uppercase",
+                  letterSpacing: "0.5px",
+                }}
+              >
+                Free
+              </motion.span>
+            )}
           </div>
 
           <nav style={{ display: "flex", flexDirection: "column", gap: 2, padding: "16px 12px", flex: 1 }}>
@@ -335,6 +377,60 @@ export default function AppLayout({ children }) {
         boxSizing: "border-box",
         fontSize: isMobile ? "14px" : "16px",
       }}>
+        {showUpgradeBanner && (
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4 }}
+            style={{
+              background: "linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%)",
+              borderRadius: 12,
+              padding: isMobile ? "14px 16px" : "16px 20px",
+              marginBottom: 20,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              gap: 16,
+              flexWrap: "wrap",
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+              <motion.div
+                animate={{ rotate: [0, 10, -10, 0] }}
+                transition={{ duration: 2, repeat: Infinity, repeatDelay: 3 }}
+                style={{ fontSize: 24 }}
+              >
+                ✨
+              </motion.div>
+              <div>
+                <div style={{ color: "#fff", fontWeight: 700, fontSize: isMobile ? 13 : 14 }}>
+                  Desbloqueie todos os recursos
+                </div>
+                <div style={{ color: "rgba(255,255,255,0.8)", fontSize: isMobile ? 11 : 12 }}>
+                  Pacientes ilimitados, equipe e financeiro completo
+                </div>
+              </div>
+            </div>
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={() => window.location.href = "/subscription"}
+              style={{
+                background: "#fff",
+                color: "#3b82f6",
+                border: "none",
+                borderRadius: 8,
+                padding: isMobile ? "8px 14px" : "10px 18px",
+                fontWeight: 600,
+                fontSize: isMobile ? 12 : 13,
+                cursor: "pointer",
+                whiteSpace: "nowrap",
+              }}
+            >
+              Ver planos
+            </motion.button>
+          </motion.div>
+        )}
         {/* motion.div — transição de página via Framer Motion */}
         <motion.div
           key={location.pathname}

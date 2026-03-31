@@ -15,14 +15,17 @@ import Login          from "./pages/auth/Login"
 import Register       from "./pages/auth/Register"
 import ForgotPassword from "./pages/auth/ForgotPassword"
 import ResetPassword  from "./pages/auth/ResetPassword"
-import LoadingScreen  from "./components/LoadingScreen"
+import Subscription        from "./pages/app/Subscription"
+import SubscriptionBlocked from "./pages/app/SubscriptionBlocked"
+import LoadingScreen       from "./components/LoadingScreen"
 import { useAuth }    from "./context/AuthContext"
 
 function PrivateRoute({ children }) {
-  const { user, loading, onboardingCompleted } = useAuth()
+  const { user, loading, onboardingCompleted, clinic, subscriptionActive } = useAuth()
   if (loading) return <LoadingScreen message="Verificando sessão..." />
   if (!user) return <Navigate to="/login" replace />
   if (!onboardingCompleted) return <Navigate to="/onboarding" replace />
+  if (clinic?.plan === "pro" && !subscriptionActive) return <Navigate to="/subscription" replace />
   return children
 }
 
@@ -38,6 +41,15 @@ function OnboardingRoute() {
   if (!user) return <Navigate to="/login" replace />
   if (onboardingCompleted) return <Navigate to="/dashboard" replace />
   return <Onboarding />
+}
+
+function SubscriptionRoute() {
+  const { user, loading, clinic, subscriptionActive } = useAuth()
+  if (loading) return <LoadingScreen message="Verificando..." />
+  if (!user) return <Navigate to="/login" replace />
+  if (clinic?.plan !== "pro" && clinic?.plan !== "free") return <Navigate to="/dashboard" replace />
+  if (!subscriptionActive) return <SubscriptionBlocked />
+  return <Subscription />
 }
 
 // AnimatePresence precisa de useLocation dentro do BrowserRouter
@@ -61,6 +73,7 @@ function AnimatedRoutes() {
         <Route path="/financeiro"     element={<PrivateRoute><Financial /></PrivateRoute>} />
         <Route path="/profile"        element={<PrivateRoute><ClinicProfile /></PrivateRoute>} />
         <Route path="/team"           element={<PrivateRoute><Team /></PrivateRoute>} />
+        <Route path="/subscription"   element={<SubscriptionRoute />} />
         <Route path="*"               element={<Navigate to="/" replace />} />
       </Routes>
     </AnimatePresence>

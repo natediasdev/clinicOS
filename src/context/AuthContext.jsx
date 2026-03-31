@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useState } from "react"
 import { supabase } from "../supabaseClient"
+import { usePlanLimits } from "../hooks/usePlanLimits"
 
 const AuthContext = createContext()
 
@@ -8,8 +9,9 @@ export function AuthProvider({ children }) {
   const [clinicId, setClinicId] = useState(null)
   const [clinic, setClinic] = useState(null)
   const [role, setRole] = useState("admin")
-  const [onboardingCompleted, setOnboardingCompleted] = useState(null) // null = ainda carregando
+  const [onboardingCompleted, setOnboardingCompleted] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [subscriptionActive, setSubscriptionActive] = useState(true)
 
   useEffect(() => {
     const initialize = async () => {
@@ -30,6 +32,7 @@ export function AuthProvider({ children }) {
       setClinic(null)
       setRole("admin")
       setOnboardingCompleted(null)
+      setSubscriptionActive(true)
       return
     }
     fetchProfile(user.id)
@@ -51,6 +54,29 @@ export function AuthProvider({ children }) {
       const { data: clinicData } = await supabase
         .from("clinics").select("*").eq("id", cid).single()
       setClinic(clinicData ?? null)
+
+      if (clinicData?.plan === "pro") {
+        await checkSubscriptionAccess(cid)
+      }
+    }
+  }
+
+  async function checkSubscriptionAccess(cid) {
+    try {
+      const { data, error } = await supabase.functions.invoke("check-subscription-status", {
+        body: { clinic_id: cid },
+      })
+
+      if (error) throw error
+
+      if (data?.active === false) {
+        setSubscriptionActive(false)
+      } else {
+        setSubscriptionActive(true)
+      }
+    } catch (err) {
+      console.error("Check subscription error:", err)
+      setSubscriptionActive(true)
     }
   }
 
@@ -62,7 +88,12 @@ export function AuthProvider({ children }) {
   const refreshClinic = async () => {
     if (!clinicId) return
     const { data } = await supabase.from("clinics").select("*").eq("id", clinicId).single()
-    if (data) setClinic(data)
+    if (data) {
+      setClinic(data)
+      if (data.plan === "pro") {
+        await checkSubscriptionAccess(clinicId)
+      }
+    }
   }
 
   const refreshOnboarding = async () => {
@@ -76,6 +107,7 @@ export function AuthProvider({ children }) {
     <AuthContext.Provider value={{
       user, clinicId, clinic, role, onboardingCompleted,
       login, logout, loading, refreshClinic, refreshOnboarding,
+      subscriptionActive, checkSubscriptionAccess,
     }}>
       {children}
     </AuthContext.Provider>
