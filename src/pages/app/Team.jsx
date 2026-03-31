@@ -6,6 +6,7 @@ import { useTheme } from "../../context/ThemeContext"
 import AppLayout from "../AppLayout"
 import { Button, Input } from "../../components/ui"
 import { STATUS_COLORS } from "../../config/statusColors"
+import { PLAN_CONFIG } from "../../hooks/usePlanLimits"
 
 const ROLE_CONFIG = {
   admin:          { label: "Admin",          color: "#8b5cf6" },
@@ -73,7 +74,9 @@ export default function Team() {
   async function handleInvite() {
     if (!inviteEmail.trim() || !inviteName.trim()) { setInviteError("Nome e e-mail são obrigatórios."); return }
     setInviteError(null); setInviting(true)
-    const staffLimit = clinic?.staff_limit ?? 1
+    const staffLimit = (clinic?.staff_limit !== null && clinic?.staff_limit !== undefined)
+      ? clinic.staff_limit
+      : (PLAN_CONFIG[clinic?.plan]?.staff_limit ?? 1)
     if (members.length >= staffLimit) { setInviteError(`Limite de ${staffLimit} membro(s) atingido. Faça upgrade.`); setInviting(false); return }
     const { error: staffError } = await supabase.from("staff").insert([{ clinic_id: clinicId, name: inviteName.trim(), email: inviteEmail.trim().toLowerCase(), role: inviteRole, specialty: inviteSpecialty.trim() || null }])
     if (staffError) { setInviteError(staffError.message); setInviting(false); return }
@@ -92,7 +95,9 @@ export default function Team() {
 
   useEffect(() => { if (clinicId) fetchMembers() }, [clinicId])
 
-  const staffLimit = clinic?.staff_limit ?? 1
+  const staffLimit = (clinic?.staff_limit !== null && clinic?.staff_limit !== undefined)
+    ? clinic.staff_limit
+    : (PLAN_CONFIG[clinic?.plan]?.staff_limit ?? 1)
   const atLimit = members.length >= staffLimit
 
   return (

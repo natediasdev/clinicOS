@@ -89,7 +89,9 @@ export function usePlanLimits() {
 
   async function checkPatientLimit() {
     if (!clinic) return { allowed: false, message: "Clínica não encontrada." }
-    const limit = clinic.patient_limit ?? PLAN_CONFIG[clinic.plan]?.patient_limit ?? 20
+    const limit = (clinic.patient_limit !== null && clinic.patient_limit !== undefined) 
+      ? clinic.patient_limit 
+      : (PLAN_CONFIG[clinic.plan]?.patient_limit ?? 20)
     if (limit === null) return { allowed: true }
     const { count } = await supabase.from("patients").select("id", { count: "exact", head: true }).is("deleted_at", null)
     const current = count ?? 0
@@ -101,7 +103,9 @@ export function usePlanLimits() {
 
   async function checkStaffLimit() {
     if (!clinic) return { allowed: false, message: "Clínica não encontrada." }
-    const limit = clinic.staff_limit ?? PLAN_CONFIG[clinic.plan]?.staff_limit ?? 1
+    const limit = (clinic.staff_limit !== null && clinic.staff_limit !== undefined)
+      ? clinic.staff_limit
+      : (PLAN_CONFIG[clinic.plan]?.staff_limit ?? 1)
     if (limit >= 999) return { allowed: true }
     const { count } = await supabase.from("staff").select("id", { count: "exact", head: true }).is("deleted_at", null)
     const current = count ?? 0

@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback, useRef } from "react"
-import { MotionToast, MotionList, MotionItem, MotionButton } from "../../components/ui/MotionComponents"
+import { MotionToast, MotionModal, MotionList, MotionItem, MotionButton } from "../../components/ui/MotionComponents"
 import { useNavigate } from "react-router-dom"
 import { supabase } from "../../supabaseClient"
 import AppLayout from "../AppLayout"
@@ -7,6 +7,7 @@ import { useTheme } from "../../context/ThemeContext"
 import { useAuth } from "../../context/AuthContext"
 import { usePermissions } from "../../hooks/usePermissions"
 import { usePlanLimits } from "../../hooks/usePlanLimits"
+import { Button, Input } from "../../components/ui"
 
 function useIsMobile() {
   const [v, setV] = useState(window.innerWidth <= 768)
@@ -47,27 +48,105 @@ function localSearch(patients, q) {
   })
 }
 
+function PatientModal({ onClose, onSave, clinicId, specialties, checkPatientLimit }) {
+  const { t } = useTheme()
+  const [name, setName] = useState("")
+  const [phone, setPhone] = useState("")
+  const [email, setEmail] = useState("")
+  const [specialty, setSpecialty] = useState("")
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState(null)
+
+  async function handleSave() {
+    if (!name.trim()) { setError("Nome é obrigatório"); return }
+    setError(null); setLoading(true)
+    
+    if (checkPatientLimit) {
+      const check = await checkPatientLimit()
+      if (!check.allowed) { setError(check.message); setLoading(false); return }
+    }
+    
+    const { error } = await supabase.from("patients").insert([{
+      name: name.trim(),
+      phone: phone.trim() || null,
+      email: email.trim() || null,
+      specialty: specialty || null,
+      clinic_id: clinicId
+    }])
+    setLoading(false)
+    if (error) { setError(error.message); return }
+    onSave(name)
+  }
+
+  return (
+    <MotionModal open={true} onClose={onClose} maxWidth={480}>
+      <div style={{ background: t.bgInset, border: `1px solid ${t.border}`, borderRadius: 16, width: "100%", maxWidth: 480, display: "flex", flexDirection: "column" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "20px 24px", borderBottom: `1px solid ${t.border}` }}>
+          <h2 style={{ fontSize: 16, fontWeight: 700, color: t.textPrimary, margin: 0 }}>Novo paciente</h2>
+          <button style={{ background: "transparent", border: "none", color: t.textGhost, fontSize: 18, cursor: "pointer" }} onClick={onClose}>✕</button>
+        </div>
+
+        <div style={{ padding: 24, display: "flex", flexDirection: "column", gap: 16 }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+            <label style={{ fontSize: 12, fontWeight: 600, color: t.textFaint }}>Nome *</label>
+            <Input type="text" placeholder="Nome completo" value={name} onChange={e => setName(e.target.value)} />
+          </div>
+
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+              <label style={{ fontSize: 12, fontWeight: 600, color: t.textFaint }}>Telefone</label>
+              <Input type="text" placeholder="(00) 00000-0000" value={phone} onChange={e => setPhone(e.target.value)} />
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+              <label style={{ fontSize: 12, fontWeight: 600, color: t.textFaint }}>E-mail</label>
+              <Input type="email" placeholder="paciente@email.com" value={email} onChange={e => setEmail(e.target.value)} />
+            </div>
+          </div>
+
+          {specialties && specialties.length > 0 && (
+            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+              <label style={{ fontSize: 12, fontWeight: 600, color: t.textFaint }}>Especialidade</label>
+              <select value={specialty} onChange={e => setSpecialty(e.target.value)} style={{ background: t.bgInput, border: `1px solid ${t.border}`, borderRadius: 8, padding: "10px 12px", fontSize: 14, color: t.textPrimary, outline: "none", width: "100%", boxSizing: "border-box", cursor: "pointer" }}>
+                <option value="">Selecione...</option>
+                {specialties.map(sp => <option key={sp} value={sp}>{sp}</option>)}
+              </select>
+            </div>
+          )}
+
+          {error && <div style={{ background: t.errorBg, border: `1px solid ${t.errorBorder}`, color: t.errorText, borderRadius: 8, padding: "10px 14px", fontSize: 13 }}>{error}</div>}
+        </div>
+
+        <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, padding: "16px 24px", borderTop: `1px solid ${t.border}` }}>
+          <Button onClick={onClose} variant="secondary">Cancelar</Button>
+          <Button onClick={handleSave} disabled={loading} loading={loading}>
+            {loading ? "Salvando..." : "Adicionar"}
+          </Button>
+        </div>
+      </div>
+    </MotionModal>
+  )
+}
+
 export default function Patients() {
   const { t } = useTheme()
-  const { clinicId } = useAuth()
+  const { clinicId, clinic } = useAuth()
   const permissions = usePermissions()
   const { checkPatientLimit } = usePlanLimits()
   const navigate = useNavigate()
   const isMobile = useIsMobile()
 
-  const [patients, setPatients]         = useState([])
-  const [name, setName]                 = useState("")
-  const [phone, setPhone]               = useState("")
-  const [email, setEmail]               = useState("")
-  const [loading, setLoading]           = useState(false)
-  const [fetching, setFetching]         = useState(true)
+  const [patients, setPatients] = useState([])
+  const [loading, setLoading] = useState(false)
+  const [fetching, setFetching] = useState(true)
   const [deleteConfirm, setDeleteConfirm] = useState(null)
-  const [error, setError]               = useState(null)
-  const [toast, setToast]               = useState(null)
-  const [query, setQuery]               = useState("")
-  const [remoteResults, setRemoteResults] = useState(null) // null = não buscou no banco ainda
-  const [searching, setSearching]       = useState(false)
-  const searchTimer                     = useRef(null)
+  const [error, setError] = useState(null)
+  const [toast, setToast] = useState(null)
+  const [query, setQuery] = useState("")
+  const [remoteResults, setRemoteResults] = useState(null)
+  const [searching, setSearching] = useState(false)
+  const [filterSpecialty, setFilterSpecialty] = useState("all")
+  const [showModal, setShowModal] = useState(false)
+  const searchTimer = useRef(null)
 
   function showToast(msg, type="success") { setToast({msg,type}); setTimeout(()=>setToast(null),3000) }
 
@@ -103,10 +182,24 @@ export default function Patients() {
 
   useEffect(() => { fetchPatients() }, [])
 
-  // Lista exibida: remota se disponível, senão local
-  const displayed = query.trim()
+  // Lista exibida: remota se disponível, senão local + filtro especialidade
+  let displayed = query.trim()
     ? (remoteResults !== null ? remoteResults : localSearch(patients, query))
     : patients
+
+  if (filterSpecialty !== "all") {
+    displayed = displayed.filter(p => p.specialty === filterSpecialty)
+  }
+
+  const allSpecialties = Array.isArray(clinic?.specialties) ? clinic.specialties : []
+
+  function showToast(msg, type="success") { setToast({msg,type}); setTimeout(()=>setToast(null),3000) }
+
+  function handleSaved(patientName) {
+    setShowModal(false)
+    fetchPatients()
+    showToast(`${patientName} adicionado!`)
+  }
 
   async function addPatient() {
     if (!name.trim()) return
@@ -131,29 +224,19 @@ export default function Patients() {
   return (
     <AppLayout>
       <Toast toast={toast} />
-      <div style={{ color:t.textBody, fontFamily:"'DM Sans','Segoe UI',sans-serif" }}>
-        <header style={{ marginBottom: isMobile ? 16 : 32 }}>
-          <h1 style={{ fontSize:isMobile?22:28, fontWeight:800, margin:0, color:t.textPrimary, letterSpacing:"-0.5px" }}>Pacientes</h1>
-          <p style={{ margin:"4px 0 0", fontSize:13, color:t.textFaint }}>Gerencie os pacientes da clínica</p>
-        </header>
 
-        {/* Formulário novo paciente */}
-        <div style={{ background:t.bgCard, borderRadius:12, padding:isMobile?"16px":"24px", marginBottom:20 }}>
-          <h2 style={{ fontSize:13, fontWeight:700, color:t.textMuted, textTransform:"uppercase", letterSpacing:"0.08em", margin:"0 0 16px" }}>Novo paciente</h2>
-          <div style={{ display:"grid", gridTemplateColumns:isMobile?"1fr":"1fr 1fr 1fr auto", gap:14, alignItems:"end" }}>
-            {[["Nome *","text","Nome completo",name,setName],["Telefone","text","(00) 00000-0000",phone,setPhone],["E-mail","email","paciente@email.com",email,setEmail]].map(([lbl,type,ph,val,setter])=>(
-              <div key={lbl} style={{ display:"flex",flexDirection:"column",gap:6 }}>
-                <label style={{ fontSize:12,fontWeight:600,color:t.textFaint }}>{lbl}</label>
-                <input type={type} placeholder={ph} value={val} onChange={e=>setter(e.target.value)} onKeyDown={e=>e.key==="Enter"&&addPatient()} style={inp}
-                  onFocus={e=>e.target.style.borderColor=t.accent} onBlur={e=>e.target.style.borderColor=t.border} />
-              </div>
-            ))}
-            <MotionButton onClick={addPatient} disabled={loading||!name.trim()} style={{ background:t.accent,border:"none",borderRadius:8,padding:"10px 20px",fontSize:14,fontWeight:700,color:"#fff",whiteSpace:"nowrap",opacity:loading||!name.trim()?0.5:1,marginTop:isMobile?4:0,fontFamily:"inherit" }}>
-              {loading ? "Salvando..." : "+ Adicionar"}
-            </MotionButton>
+      {showModal && (
+        <PatientModal onClose={()=>setShowModal(false)} onSave={handleSaved} clinicId={clinicId} specialties={allSpecialties} checkPatientLimit={checkPatientLimit} />
+      )}
+
+      <div style={{ color:t.textBody, fontFamily:"'DM Sans','Segoe UI',sans-serif" }}>
+        <header style={{ marginBottom: isMobile ? 16 : 32, display:"flex", justifyContent:"space-between", alignItems:"flex-start", gap:16, flexWrap:"wrap" }}>
+          <div>
+            <h1 style={{ fontSize:isMobile?22:28, fontWeight:800, margin:0, color:t.textPrimary, letterSpacing:"-0.5px" }}>Pacientes</h1>
+            <p style={{ margin:"4px 0 0", fontSize:13, color:t.textFaint }}>Gerencie os pacientes da clínica</p>
           </div>
-          {error && <div style={{ background:t.errorBg,border:`1px solid ${t.errorBorder}`,color:t.errorText,borderRadius:8,padding:"10px 14px",fontSize:13,marginTop:14 }}>{error}</div>}
-        </div>
+          <Button onClick={()=>setShowModal(true)}>+ Novo paciente</Button>
+        </header>
 
         {/* Lista + busca */}
         <div style={{ background:t.bgCard, borderRadius:12, padding:isMobile?"16px":"24px" }}>
@@ -162,22 +245,30 @@ export default function Patients() {
               Pacientes cadastrados
               {!fetching && <span style={{ background:t.bgInset,color:t.accent,fontSize:12,fontWeight:700,padding:"2px 10px",borderRadius:99 }}>{displayed.length}</span>}
             </h2>
-            {/* Campo de busca */}
-            <div style={{ position:"relative", flex:isMobile?"1":"unset", minWidth:isMobile?"100%":260 }}>
-              <span style={{ position:"absolute", left:10, top:"50%", transform:"translateY(-50%)", fontSize:14, color:t.textGhost, pointerEvents:"none" }}>🔍</span>
-              <input
-                type="text"
-                placeholder="Buscar por nome, telefone, e-mail ou CPF..."
-                value={query}
-                onChange={e=>handleQueryChange(e.target.value)}
-                style={{ ...inp, paddingLeft:32, width:"100%" }}
-                onFocus={e=>e.target.style.borderColor=t.accent}
-                onBlur={e=>e.target.style.borderColor=t.border}
-              />
-              {searching && <span style={{ position:"absolute", right:10, top:"50%", transform:"translateY(-50%)", fontSize:11, color:t.textGhost }}>buscando...</span>}
-              {query && !searching && (
-                <button onClick={()=>{setQuery("");setRemoteResults(null)}} style={{ position:"absolute",right:8,top:"50%",transform:"translateY(-50%)",background:"transparent",border:"none",color:t.textGhost,cursor:"pointer",fontSize:16,lineHeight:1 }}>✕</button>
+            <div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>
+              {allSpecialties.length > 0 && (
+                <select value={filterSpecialty} onChange={e=>setFilterSpecialty(e.target.value)} style={{ background:t.bgInset, border:`1px solid ${t.border}`, borderRadius:8, padding:"8px 12px", fontSize:13, color:t.textPrimary, cursor:"pointer", outline:"none" }}>
+                  <option value="all">Todas especialidades</option>
+                  {allSpecialties.map(sp => <option key={sp} value={sp}>{sp}</option>)}
+                </select>
               )}
+              {/* Campo de busca */}
+              <div style={{ position:"relative", flex:isMobile?"1":"unset", minWidth:isMobile?"100%":200 }}>
+                <span style={{ position:"absolute", left:10, top:"50%", transform:"translateY(-50%)", fontSize:14, color:t.textGhost, pointerEvents:"none" }}>🔍</span>
+                <input
+                  type="text"
+                  placeholder="Buscar..."
+                  value={query}
+                  onChange={e=>handleQueryChange(e.target.value)}
+                  style={{ ...inp, paddingLeft:32, width:"100%" }}
+                  onFocus={e=>e.target.style.borderColor=t.accent}
+                  onBlur={e=>e.target.style.borderColor=t.border}
+                />
+                {searching && <span style={{ position:"absolute", right:10, top:"50%", transform:"translateY(-50%)", fontSize:11, color:t.textGhost }}>buscando...</span>}
+                {query && !searching && (
+                  <button onClick={()=>{setQuery("");setRemoteResults(null)}} style={{ position:"absolute",right:8,top:"50%",transform:"translateY(-50%)",background:"transparent",border:"none",color:t.textGhost,cursor:"pointer",fontSize:16,lineHeight:1 }}>✕</button>
+                )}
+              </div>
             </div>
           </div>
 
@@ -201,6 +292,7 @@ export default function Patients() {
                     <span onClick={()=>navigate(`/patients/${p.id}`)} style={{ fontWeight:700,color:t.accent,fontSize:15,cursor:"pointer" }}>{p.name}</span>
                     {p.phone && <span style={{ fontSize:13,color:t.textGhost }}>{p.phone}</span>}
                     {p.email && <span style={{ fontSize:12,color:t.textGhost,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap" }}>{p.email}</span>}
+                    {p.specialty && <span style={{ fontSize:12,color:t.textFaint,background:t.bgCard,borderRadius:4,padding:"2px 6px",display:"inline-block",marginTop:4 }}>{p.specialty}</span>}
                   </div>
                   <div style={{ marginLeft:12,flexShrink:0 }}>
                     {deleteConfirm===p.id ? (
@@ -217,13 +309,13 @@ export default function Patients() {
             </MotionList>
           ) : (
             <table style={{ width:"100%",borderCollapse:"collapse" }}>
-              <thead>
-                <tr>
-                  {["Nome","Telefone","E-mail",""].map((h,i)=>(
-                    <th key={i} style={{ fontSize:11,fontWeight:700,color:t.textGhost,textTransform:"uppercase",letterSpacing:"0.08em",padding:"0 12px 12px",textAlign:i===3?"right":"left",borderBottom:`1px solid ${t.bgInset}` }}>{h}</th>
-                  ))}
-                </tr>
-              </thead>
+                <thead>
+                  <tr>
+                    {["Nome","Telefone","E-mail","Especialidade",""].map((h,i)=>(
+                      <th key={i} style={{ fontSize:11,fontWeight:700,color:t.textGhost,textTransform:"uppercase",letterSpacing:"0.08em",padding:"0 12px 12px",textAlign:i===4?"right":"left",borderBottom:`1px solid ${t.bgInset}` }}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
               <tbody>
                 {displayed.map(p=>(
                   <tr key={p.id} style={{ borderBottom:`1px solid ${t.bgInset}` }}>
@@ -232,6 +324,7 @@ export default function Patients() {
                     </td>
                     <td style={{ padding:"14px 12px",fontSize:14,color:t.textGhost }}>{p.phone||"—"}</td>
                     <td style={{ padding:"14px 12px",fontSize:14,color:t.textGhost }}>{p.email||"—"}</td>
+                    <td style={{ padding:"14px 12px",fontSize:14,color:t.textFaint }}>{p.specialty||"—"}</td>
                     <td style={{ padding:"14px 12px",textAlign:"right" }}>
                       {deleteConfirm===p.id ? (
                         <span style={{ display:"flex",alignItems:"center",gap:8,justifyContent:"flex-end" }}>

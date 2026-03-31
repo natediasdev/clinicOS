@@ -133,12 +133,13 @@ function PatientSearchInput({ value, onSelect, clinicId }) {
 // ─── AppointmentModal ─────────────────────────────────────────────────────────
 // Chama useTheme() diretamente — sem depender de props s/t
 
-function AppointmentModal({ onClose, onSave, staffList, clinicId }) {
+function AppointmentModal({ onClose, onSave, staffList, clinicId, specialties }) {
   const { t } = useTheme()
   const [patient,  setPatient]  = useState(null)
   const [staffId,  setStaffId]  = useState("")
   const [datetime, setDatetime] = useState("")
   const [status,   setStatus]   = useState("scheduled")
+  const [specialty, setSpecialty] = useState("")
   const [loading,  setLoading]  = useState(false)
   const [error,    setError]    = useState(null)
 
@@ -153,7 +154,7 @@ function AppointmentModal({ onClose, onSave, staffList, clinicId }) {
     if (!datetime) { setError("Informe a data e hora"); return }
     setError(null); setLoading(true)
     const { error } = await supabase.from("appointments").insert([{
-      clinic_id:clinicId, client_id:patient.id, staff_id:staffId||null, datetime, status
+      clinic_id:clinicId, client_id:patient.id, staff_id:staffId||null, datetime, status, specialty:specialty||null
     }])
     setLoading(false)
     if (error) { setError(error.message); return }
@@ -161,8 +162,7 @@ function AppointmentModal({ onClose, onSave, staffList, clinicId }) {
   }
 
   return (
-    <MotionModal style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.7)", display:"flex", alignItems:"center", justifyContent:"center", zIndex:100, padding:24 }}
-      onClick={e=>e.target===e.currentTarget&&onClose()}>
+    <MotionModal open={true} onClose={onClose} maxWidth={480}>
       <div style={{ background:t.bgInset, border:`1px solid ${t.border}`, borderRadius:16, width:"100%", maxWidth:480, display:"flex", flexDirection:"column" }}>
 
         <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"20px 24px", borderBottom:`1px solid ${t.border}` }}>
@@ -187,6 +187,16 @@ function AppointmentModal({ onClose, onSave, staffList, clinicId }) {
               <select value={staffId} onChange={e=>setStaffId(e.target.value)} style={{ background:t.bgInput, border:`1px solid ${t.border}`, borderRadius:8, padding:"10px 12px", fontSize:14, color:t.textPrimary, outline:"none", width:"100%", boxSizing:"border-box", cursor:"pointer" }}>
                 <option value="">Sem profissional definido</option>
                 {staffList.map(st=><option key={st.id} value={st.id}>{st.name}</option>)}
+              </select>
+            </div>
+          )}
+
+          {specialties && specialties.length > 0 && (
+            <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
+              <label style={{ fontSize:12, fontWeight:600, color:t.textFaint }}>Especialidade</label>
+              <select value={specialty} onChange={e=>setSpecialty(e.target.value)} style={{ background:t.bgInput, border:`1px solid ${t.border}`, borderRadius:8, padding:"10px 12px", fontSize:14, color:t.textPrimary, outline:"none", width:"100%", boxSizing:"border-box", cursor:"pointer" }}>
+                <option value="">Selecione...</option>
+                {specialties.map(sp=><option key={sp} value={sp}>{sp}</option>)}
               </select>
             </div>
           )}
@@ -265,7 +275,7 @@ function CalendarView({ appointments, onDayClick }) {
 // ─── Página principal ─────────────────────────────────────────────────────────
 
 export default function Appointments() {
-  const { clinicId, user } = useAuth()
+  const { clinicId, clinic, user } = useAuth()
   const permissions = usePermissions()
   const { t }        = useTheme()
   const isMobile     = useIsMobile()
@@ -286,6 +296,7 @@ export default function Appointments() {
   const [query,          setQuery]          = useState("")
   const [searching,      setSearching]      = useState(false)
   const [remoteAppts,    setRemoteAppts]    = useState(null)
+  const [filterSpecialty, setFilterSpecialty] = useState("all")
   const searchTimerAppt                     = useRef(null)
 
   // styles locais usados apenas neste componente
@@ -420,12 +431,16 @@ export default function Appointments() {
     ? (remoteAppts !== null ? remoteAppts : localSearchAppts(byStatus, query))
     : byStatus
 
+  const filteredWithSpecialty = filterSpecialty === "all" 
+    ? filtered 
+    : filtered.filter(a => a.specialty === filterSpecialty)
+
   return (
     <AppLayout>
-      <Toast toast={toast} />
+      <Toast toast={toast} t={t} />
 
       {showModal && (
-        <AppointmentModal onClose={()=>setShowModal(false)} onSave={handleSaved} staffList={staffList} clinicId={clinicId} />
+        <AppointmentModal onClose={()=>setShowModal(false)} onSave={handleSaved} staffList={staffList} clinicId={clinicId} specialties={clinic?.specialties} />
       )}
 
       <MotionModal open={!!selectedDay} onClose={()=>setSelectedDay(null)} maxWidth={480}>
@@ -462,7 +477,7 @@ export default function Appointments() {
               <Button onClick={()=>setView("list")}     variant={view==="list"?"primary":"ghost"}     style={{ borderRadius:0, borderRight:"1px solid transparent" }}>☰ Lista</Button>
               <Button onClick={()=>setView("calendar")} variant={view==="calendar"?"primary":"ghost"} style={{ borderRadius:0 }}>⊟ Mês</Button>
             </div>
-            <Button onClick={()=>setShowModal(true)} fullWidth={isMobile}>+ Novo agendamento</Button>
+            <Button onClick={() => setShowModal(true)} fullWidth={isMobile}>+ Novo agendamento</Button>
           </div>
         </header>
 
@@ -524,6 +539,16 @@ export default function Appointments() {
               })}
             </div>
 
+            {/* Filtro por especialidade */}
+            {Array.isArray(clinic?.specialties) && clinic.specialties.length > 0 && (
+              <div style={{ marginBottom:12 }}>
+                <select value={filterSpecialty} onChange={e=>setFilterSpecialty(e.target.value)} style={{ background:t.bgInset, border:`1px solid ${t.border}`, borderRadius:8, padding:"8px 12px", fontSize:13, color:t.textPrimary, cursor:"pointer", outline:"none" }}>
+                  <option value="all">Todas especialidades</option>
+                  {clinic.specialties.map(sp => <option key={sp} value={sp}>{sp}</option>)}
+                </select>
+              </div>
+            )}
+
             {/* Campo de busca */}
             <div style={{ position:"relative", marginBottom:16 }}>
               <span style={{ position:"absolute", left:12, top:"50%", transform:"translateY(-50%)", fontSize:14, color:t.textGhost, pointerEvents:"none" }}>🔍</span>
@@ -545,7 +570,7 @@ export default function Appointments() {
                 <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
                   {[1,2,3,4].map(i=><div key={i} className="skeleton-shimmer" style={{ height:52 }}/>)}
                 </div>
-              ) : filtered.length === 0 ? (
+              ) : filteredWithSpecialty.length === 0 ? (
                 <div style={{ textAlign:"center", padding:"48px 0", display:"flex", flexDirection:"column", alignItems:"center", gap:8 }}>
                   <span style={{ fontSize:36 }}>📅</span>
                   <p style={{ fontSize:15, color:t.textGhost, margin:0, fontWeight:600 }}>Nenhum agendamento encontrado</p>
@@ -553,7 +578,7 @@ export default function Appointments() {
                 </div>
               ) : isMobile ? (
                 <MotionList style={{ display:"flex", flexDirection:"column", gap:10 }}>
-                  {filtered.map(a=>(
+                  {filteredWithSpecialty.map(a=>(
                     <MotionItem key={a.id}><div style={{ background:t.bgInset, borderRadius:10, padding:"14px 16px", display:"flex", flexDirection:"column", gap:8 }}>
                       <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
                         <span style={{ fontWeight:700, color:t.textPrimary, fontSize:15 }}>{patientMap[a.client_id]?.name ?? "—"}</span>
@@ -583,7 +608,7 @@ export default function Appointments() {
                     </tr>
                   </thead>
                   <tbody>
-                    {filtered.map(a=>(
+                    {filteredWithSpecialty.map(a=>(
                       <tr key={a.id} style={s.tr}>
                         <td style={s.td}>
                           <span style={s.patientName}>{patientMap[a.client_id]?.name ?? "—"}</span>
