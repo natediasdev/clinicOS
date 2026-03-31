@@ -12,6 +12,7 @@ import PrivacyPolicy  from "./pages/public/PrivacyPolicy"
 import TermsOfUse     from "./pages/public/TermsOfUse"
 import Onboarding     from "./pages/onboarding/Onboarding"
 import Login          from "./pages/auth/Login"
+import Register       from "./pages/auth/Register"
 import ForgotPassword from "./pages/auth/ForgotPassword"
 import ResetPassword  from "./pages/auth/ResetPassword"
 import LoadingScreen  from "./components/LoadingScreen"
@@ -50,6 +51,7 @@ function AnimatedRoutes() {
         <Route path="/terms"          element={<TermsOfUse />} />
         <Route path="/reset-password" element={<ResetPassword />} />
         <Route path="/login"          element={<PublicRoute><Login /></PublicRoute>} />
+        <Route path="/register"       element={<PublicRoute><Register /></PublicRoute>} />
         <Route path="/forgot-password" element={<PublicRoute><ForgotPassword /></PublicRoute>} />
         <Route path="/onboarding"     element={<OnboardingRoute />} />
         <Route path="/dashboard"      element={<PrivateRoute><Dashboard /></PrivateRoute>} />
