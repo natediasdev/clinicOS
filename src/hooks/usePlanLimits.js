@@ -123,7 +123,7 @@ export function usePlanLimits() {
       ? clinic.patient_limit 
       : (PLAN_CONFIG[clinic.plan]?.patient_limit ?? 20)
     if (limit === null) return { allowed: true }
-    const { count } = await supabase.from("patients").select("id", { count: "exact", head: true }).is("deleted_at", null)
+    const { count } = await supabase.from("patients").select("id", { count: "exact", head: true }).eq("clinic_id", clinic.id).is("deleted_at", null)
     const current = count ?? 0
     if (current >= limit) {
       return { allowed: false, limitReached: true, message: `Limite de ${limit} pacientes atingido no plano ${planLabel()}. Faça upgrade para continuar.` }
@@ -137,7 +137,7 @@ export function usePlanLimits() {
       ? clinic.staff_limit
       : (PLAN_CONFIG[clinic.plan]?.staff_limit ?? 1)
     if (limit >= 999) return { allowed: true }
-    const { count } = await supabase.from("staff").select("id", { count: "exact", head: true }).is("deleted_at", null)
+    const { count } = await supabase.from("staff").select("id", { count: "exact", head: true }).eq("clinic_id", clinic.id).is("deleted_at", null)
     const current = count ?? 0
     if (current >= limit) {
       return { allowed: false, limitReached: true, message: `Limite de ${limit} usuário(s) atingido no plano ${planLabel()}. Faça upgrade para continuar.` }

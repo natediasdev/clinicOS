@@ -1,4 +1,5 @@
 import { createClient } from "@supabase/supabase-js"
+import { createHmac } from "node:crypto"
 
 const supabaseUrl  = Deno.env.get("SUPABASE_URL")!
 const supabaseKey  = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
@@ -35,9 +36,9 @@ function validateSignature(request: Request): boolean {
   let hashReceived = ""
   
   for (const part of parts) {
-    const [key, value] = part.split("=", 1)
-    if (key.trim() === "ts") ts = value.trim()
-    if (key.trim() === "v1") hashReceived = value.trim()
+    const [key, value] = part.split("=")
+    if (key?.trim() === "ts") ts = value?.trim() || ""
+    if (key?.trim() === "v1") hashReceived = value?.trim() || ""
   }
 
   if (!ts || !hashReceived) {
@@ -170,14 +171,18 @@ Deno.serve(async (req: Request) => {
       const payment = await mpResponse.json()
 
       if (payment.status === "rejected" || payment.status === "cancelled" || payment.status === "refunded") {
-        const { data: subByClinic } = await supabase
-          .from("subscriptions")
-          .select("clinic_id")
-          .eq("status", "active")
-          .single()
+        const subscriptionId = payment.preapproval_id || data?.preapproval_id
+        if (subscriptionId) {
+          const { data: subByClinic } = await supabase
+            .from("subscriptions")
+            .select("clinic_id")
+            .eq("mercadopago_id", subscriptionId)
+            .eq("status", "active")
+            .single()
 
-        if (subByClinic) {
-          await updateClinicAccess(subByClinic.clinic_id, true)
+          if (subByClinic) {
+            await updateClinicAccess(subByClinic.clinic_id, true)
+          }
         }
       }
 
