@@ -272,7 +272,7 @@ export default function Financial() {
 
   async function fetchPayments() {
     setFetching(true)
-    let query = supabase.from("payments").select("*").is("deleted_at",null).order("created_at",{ascending:false})
+    let query = supabase.from("payments").select("*").eq("clinic_id", clinicId).is("deleted_at",null).order("created_at",{ascending:false})
     const range = getPeriodRange(period)
     if (range) {
       query = query.gte("created_at", range.start.toISOString()).lte("created_at", range.end.toISOString())

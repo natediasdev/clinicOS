@@ -1,4 +1,4 @@
-import { createClient } from "https://esm.sh"
+import { createClient } from "@supabase/supabase-js"
 
 const supabaseUrl  = Deno.env.get("SUPABASE_URL")!
 const supabaseKey  = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
@@ -9,7 +9,7 @@ const MP_ACCESS_TOKEN = Deno.env.get("MERCADOPAGO_ACCESS_TOKEN")!
 const CORS = {
   "Access-Control-Allow-Origin":  "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
+  "Access-Control-Allow-Methods": "POST, GET, OPTIONS",
 }
 
 function json(data: unknown, status = 200) {

@@ -352,7 +352,7 @@ export default function Appointments() {
 
     const [apptRes, staffRes] = await Promise.all([
       apptQuery,
-      supabase.from("staff").select("id,name").is("deleted_at",null),
+      supabase.from("staff").select("id,name").eq("clinic_id",clinicId).is("deleted_at",null),
     ])
     const appts = apptRes.data ?? []
     const staff = staffRes.data ?? []

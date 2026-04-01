@@ -17,7 +17,7 @@ const FEATURES = [
   "Equipe completa",
   "Prontuário eletrônico",
   "Financeiro completo",
-  "Dashboard avanzado",
+  "Dashboard avançado",
 ]
 
 export default function Register() {
@@ -57,18 +57,19 @@ export default function Register() {
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email: email.trim(),
         password,
-        options: { 
+        options: {
           data: { name: name.trim() },
-          emailRedirectTo: window.location.origin + "/login"
-        }
+          emailRedirectTo: window.location.origin + "/login",
+        },
       })
 
       if (authError) {
-        if (authError.message.includes("already been registered")) {
-          showToast("Este e-mail já está cadastrado. Faça login ou recupere sua senha.", "error")
-        } else {
-          showToast(authError.message, "error")
-        }
+        showToast(
+          authError.message.includes("already been registered")
+            ? "Este e-mail já está cadastrado. Faça login ou recupere sua senha."
+            : authError.message,
+          "error"
+        )
         setLoading(false)
         return
       }
@@ -79,7 +80,11 @@ export default function Register() {
         return
       }
 
-      if (authData.user.email_confirmed_at) {
+      // Email confirmado imediatamente (email confirmation desativado no Supabase)
+      if (authData.user.email_confirmed_at || authData.session) {
+        // Aguarda trigger handle_new_user criar a clínica (pode levar ~500ms)
+        await new Promise(r => setTimeout(r, 800))
+
         const { data: profile } = await supabase
           .from("profiles")
           .select("clinic_id")
@@ -95,11 +100,13 @@ export default function Register() {
           setTimeout(() => navigate("/onboarding"), 1500)
         }
       } else {
-        showToast("Conta criada! Confirme seu email para continuar.")
+        // Email confirmation ativado — usuário precisa confirmar antes de pagar
+        showToast("Conta criada! Confirme seu e-mail para continuar.")
         setTimeout(() => navigate("/login"), 2000)
       }
 
     } catch (err) {
+      console.error("Register error:", err)
       showToast("Erro inesperado. Tente novamente.", "error")
     }
 
@@ -108,7 +115,6 @@ export default function Register() {
 
   async function handleStartTrial() {
     if (!newClinicId) return
-
     setLoading(true)
 
     try {
@@ -117,27 +123,18 @@ export default function Register() {
 
       const { error } = await supabase
         .from("clinics")
-        .update({
-          plan: "pro",
-          trial_end: trialEnd.toISOString(),
-        })
+        .update({ plan: "pro", trial_end: trialEnd.toISOString() })
         .eq("id", newClinicId)
 
       if (error) throw error
 
-      const { error: subError } = await supabase
-        .from("subscriptions")
-        .insert({
-          clinic_id: newClinicId,
-          billing_cycle: "monthly",
-          status: "trial",
-          trial_end: trialEnd.toISOString(),
-          current_period_end: trialEnd.toISOString(),
-        })
-
-      if (subError) {
-        console.error("Trial subscription error:", subError)
-      }
+      await supabase.from("subscriptions").insert({
+        clinic_id: newClinicId,
+        billing_cycle: "monthly",
+        status: "trial",
+        trial_end: trialEnd.toISOString(),
+        current_period_end: trialEnd.toISOString(),
+      })
 
       showToast("Período de teste ativado! 14 dias gratuitos.")
       setTimeout(() => navigate("/onboarding"), 1500)
@@ -152,10 +149,17 @@ export default function Register() {
 
   async function handleSubscribe() {
     if (!newClinicId) return
-
     setLoading(true)
 
     try {
+      // Garante que a sessão atual está ativa antes de invocar a edge function
+      const { data: sessionData } = await supabase.auth.getSession()
+      if (!sessionData?.session) {
+        showToast("Sessão expirada. Faça login novamente.", "error")
+        setLoading(false)
+        return
+      }
+
       const { data, error } = await supabase.functions.invoke("create-checkout", {
         body: {
           clinic_id: newClinicId,
@@ -163,12 +167,16 @@ export default function Register() {
         },
       })
 
-      if (error) throw error
+      if (error) {
+        // Tenta extrair mensagem de erro da edge function
+        const detail = error?.context?.json?.error || error?.message || "Erro ao criar checkout"
+        throw new Error(detail)
+      }
 
       if (data?.initPoint) {
         window.location.href = data.initPoint
       } else {
-        showToast("Erro ao criar checkout", "error")
+        showToast("Checkout criado mas sem URL de pagamento. Contate o suporte.", "error")
       }
     } catch (err) {
       console.error("Subscribe error:", err)
@@ -179,10 +187,12 @@ export default function Register() {
   }
 
   const currentPrice = PLAN_PRICES.pro[selectedCycle]
-  const monthlyEquivalent = selectedCycle === "monthly" 
-    ? PLAN_PRICES.pro.monthly 
-    : Math.round(PLAN_PRICES.pro[selectedCycle] / (selectedCycle === "quarterly" ? 3 : 6))
+  const monthlyEquivalent =
+    selectedCycle === "monthly"
+      ? PLAN_PRICES.pro.monthly
+      : Math.round(PLAN_PRICES.pro[selectedCycle] / (selectedCycle === "quarterly" ? 3 : 6))
 
+  // ── Step: seleção de plano ─────────────────────────────────────────────────
   if (step === "plan-select") {
     return (
       <div style={{
@@ -196,18 +206,12 @@ export default function Register() {
       }}>
         <MotionToast toast={toast}>
           <div style={{
-            position: "fixed",
-            bottom: 24,
-            right: 24,
-            padding: "12px 20px",
-            borderRadius: 10,
-            border: "1px solid",
+            position: "fixed", bottom: 24, right: 24,
+            padding: "12px 20px", borderRadius: 10, border: "1px solid",
             background: toast?.type === "success" ? t.successBg : t.errorBg,
             borderColor: toast?.type === "success" ? t.successBorder : t.errorBorder,
             color: toast?.type === "success" ? t.successText : t.errorText,
-            fontWeight: 600,
-            fontSize: 14,
-            zIndex: 999,
+            fontWeight: 600, fontSize: 14, zIndex: 999,
           }}>
             {toast?.type === "success" ? "✓" : "✕"} {toast?.msg}
           </div>
@@ -215,12 +219,7 @@ export default function Register() {
 
         <div style={{ maxWidth: 480, width: "100%" }}>
           <div style={{ textAlign: "center", marginBottom: 32 }}>
-            <h1 style={{
-              fontSize: 28,
-              fontWeight: 800,
-              color: t.textPrimary,
-              marginBottom: 8,
-            }}>
+            <h1 style={{ fontSize: 28, fontWeight: 800, color: t.textPrimary, marginBottom: 8 }}>
               Escolha seu plano
             </h1>
             <p style={{ color: t.textFaint, fontSize: 14 }}>
@@ -228,26 +227,18 @@ export default function Register() {
             </p>
           </div>
 
-          <div style={{
-            display: "flex",
-            gap: 8,
-            justifyContent: "center",
-            marginBottom: 24,
-          }}>
+          {/* Seletor de ciclo */}
+          <div style={{ display: "flex", gap: 8, justifyContent: "center", marginBottom: 24 }}>
             {BILLING_CYCLES.map((cycle) => (
               <button
                 key={cycle.id}
                 onClick={() => setSelectedCycle(cycle.id)}
                 style={{
-                  padding: "8px 16px",
-                  borderRadius: 8,
-                  border: "1px solid",
+                  padding: "8px 16px", borderRadius: 8, border: "1px solid",
                   borderColor: selectedCycle === cycle.id ? t.accent : t.border,
                   background: selectedCycle === cycle.id ? t.accent : "transparent",
                   color: selectedCycle === cycle.id ? "#fff" : t.textSecondary,
-                  fontWeight: 600,
-                  fontSize: 13,
-                  cursor: "pointer",
+                  fontWeight: 600, fontSize: 13, cursor: "pointer",
                 }}
               >
                 {cycle.label}
@@ -258,21 +249,17 @@ export default function Register() {
             ))}
           </div>
 
+          {/* Card de preço */}
           <div style={{
-            background: t.bgCard,
-            borderRadius: 16,
-            border: `1px solid ${t.border}`,
-            padding: 24,
-            marginBottom: 24,
+            background: t.bgCard, borderRadius: 16,
+            border: `1px solid ${t.border}`, padding: 24, marginBottom: 24,
           }}>
             <div style={{ textAlign: "center", marginBottom: 20 }}>
-              <div style={{ fontSize: 12, fontWeight: 600, color: t.accent, textTransform: "uppercase" }}>
+              <div style={{ fontSize: 12, fontWeight: 700, color: t.accent, textTransform: "uppercase", letterSpacing: "0.5px" }}>
                 Plano Pro
               </div>
               <div style={{ display: "flex", alignItems: "baseline", justifyContent: "center", gap: 4 }}>
-                <span style={{ fontSize: 36, fontWeight: 800, color: t.textPrimary }}>
-                  R$ {monthlyEquivalent}
-                </span>
+                <span style={{ fontSize: 36, fontWeight: 800, color: t.textPrimary }}>R$ {monthlyEquivalent}</span>
                 <span style={{ color: t.textFaint, fontSize: 14 }}>/mês</span>
               </div>
               {selectedCycle !== "monthly" && (
@@ -291,33 +278,23 @@ export default function Register() {
             </ul>
           </div>
 
-          <Button
-            onClick={handleSubscribe}
-            disabled={loading}
-            loading={loading}
-            fullWidth
-            style={{ marginBottom: 10 }}
-          >
+          <Button onClick={handleSubscribe} disabled={loading} loading={loading} fullWidth style={{ marginBottom: 10 }}>
             Assinar agora
           </Button>
 
-          <Button
-            onClick={handleStartTrial}
-            disabled={loading}
-            variant="secondary"
-            fullWidth
-          >
+          <Button onClick={handleStartTrial} disabled={loading} variant="secondary" fullWidth>
             Experimentar grátis (14 dias)
           </Button>
 
           <p style={{ textAlign: "center", marginTop: 16, color: t.textFaint, fontSize: 12 }}>
-            Pagamento seguro via Mercado Pago
+            Pagamento seguro via Mercado Pago. Cancele a qualquer momento.
           </p>
         </div>
       </div>
     )
   }
 
+  // ── Step: cadastro ────────────────────────────────────────────────────────
   return (
     <div style={{
       minHeight: "100vh",
@@ -330,19 +307,12 @@ export default function Register() {
     }}>
       <MotionToast toast={toast}>
         <div style={{
-          border: "1px solid",
-          borderRadius: 10,
-          padding: "12px 20px",
-          fontSize: 14,
-          fontWeight: 600,
-          boxShadow: "0 8px 24px rgba(0,0,0,0.2)",
+          border: "1px solid", borderRadius: 10, padding: "12px 20px",
+          fontSize: 14, fontWeight: 600, boxShadow: "0 8px 24px rgba(0,0,0,0.2)",
           background: toast?.type === "success" ? t.successBg : t.errorBg,
           borderColor: toast?.type === "success" ? t.successBorder : t.errorBorder,
           color: toast?.type === "success" ? t.successText : t.errorText,
-          position: "fixed",
-          bottom: 24,
-          right: 24,
-          zIndex: 999,
+          position: "fixed", bottom: 24, right: 24, zIndex: 999,
         }}>
           {toast?.type === "success" ? "✓" : "✕"} {toast?.msg}
         </div>
@@ -357,13 +327,7 @@ export default function Register() {
         border: `1px solid ${t.border}`,
       }}>
         <div style={{ textAlign: "center", marginBottom: 32 }}>
-          <div style={{
-            fontSize: 28,
-            fontWeight: 800,
-            color: t.textPrimary,
-            letterSpacing: "-0.5px",
-            marginBottom: 8,
-          }}>
+          <div style={{ fontSize: 28, fontWeight: 800, color: t.textPrimary, letterSpacing: "-0.5px", marginBottom: 8 }}>
             Clinic<span style={{ color: t.accent }}>OS</span>
           </div>
           <p style={{ color: t.textFaint, fontSize: 14, margin: 0 }}>
@@ -373,45 +337,22 @@ export default function Register() {
 
         <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
           <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-            <label style={{ fontSize: 13, fontWeight: 600, color: t.textMuted }}>
-              Nome completo
-            </label>
-            <Input
-              type="text"
-              placeholder="Seu nome"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-            />
+            <label style={{ fontSize: 13, fontWeight: 600, color: t.textMuted }}>Nome completo</label>
+            <Input type="text" placeholder="Seu nome" value={name} onChange={(e) => setName(e.target.value)} />
           </div>
 
           <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-            <label style={{ fontSize: 13, fontWeight: 600, color: t.textMuted }}>
-              E-mail
-            </label>
-            <Input
-              type="email"
-              placeholder="seu@email.com"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-            />
+            <label style={{ fontSize: 13, fontWeight: 600, color: t.textMuted }}>E-mail</label>
+            <Input type="email" placeholder="seu@email.com" value={email} onChange={(e) => setEmail(e.target.value)} />
           </div>
 
           <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-            <label style={{ fontSize: 13, fontWeight: 600, color: t.textMuted }}>
-              Senha
-            </label>
-            <Input
-              type="password"
-              placeholder="••••••••"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-            />
+            <label style={{ fontSize: 13, fontWeight: 600, color: t.textMuted }}>Senha</label>
+            <Input type="password" placeholder="••••••••" value={password} onChange={(e) => setPassword(e.target.value)} />
           </div>
 
           <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-            <label style={{ fontSize: 13, fontWeight: 600, color: t.textMuted }}>
-              Confirmar senha
-            </label>
+            <label style={{ fontSize: 13, fontWeight: 600, color: t.textMuted }}>Confirmar senha</label>
             <Input
               type="password"
               placeholder="••••••••"
@@ -432,21 +373,9 @@ export default function Register() {
           </Button>
         </div>
 
-        <div style={{
-          marginTop: 24,
-          textAlign: "center",
-          fontSize: 14,
-          color: t.textFaint,
-        }}>
+        <div style={{ marginTop: 24, textAlign: "center", fontSize: 14, color: t.textFaint }}>
           Já tem uma conta?{" "}
-          <a
-            href="/login"
-            style={{
-              color: t.accent,
-              textDecoration: "none",
-              fontWeight: 600,
-            }}
-          >
+          <a href="/login" style={{ color: t.accent, textDecoration: "none", fontWeight: 600 }}>
             Fazer login
           </a>
         </div>

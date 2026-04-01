@@ -60,10 +60,10 @@ function useDashboardData(clinicId) {
 
         // ── Métricas base ─────────────────────────────────────────
         const [pR, tR, nR, wR] = await Promise.all([
-          supabase.from("patients").select("id",{count:"exact",head:true}).is("deleted_at",null),
-          supabase.from("appointments").select("id",{count:"exact",head:true}).gte("datetime",today.start).lte("datetime",today.end).neq("status","cancelled").is("deleted_at",null),
-          supabase.from("appointments").select("id,datetime,status,client_id").gte("datetime",now.toISOString()).eq("status","scheduled").is("deleted_at",null).order("datetime",{ascending:true}).limit(5),
-          supabase.from("appointments").select("id,status").gte("datetime",week.start).lte("datetime",week.end).is("deleted_at",null),
+          supabase.from("patients").select("id",{count:"exact",head:true}).eq("clinic_id",clinicId).is("deleted_at",null),
+          supabase.from("appointments").select("id",{count:"exact",head:true}).eq("clinic_id",clinicId).gte("datetime",today.start).lte("datetime",today.end).neq("status","cancelled").is("deleted_at",null),
+          supabase.from("appointments").select("id,datetime,status,client_id").eq("clinic_id",clinicId).gte("datetime",now.toISOString()).eq("status","scheduled").is("deleted_at",null).order("datetime",{ascending:true}).limit(5),
+          supabase.from("appointments").select("id,status").eq("clinic_id",clinicId).gte("datetime",week.start).lte("datetime",week.end).is("deleted_at",null),
         ])
 
         // nomes dos próximos
@@ -83,6 +83,7 @@ function useDashboardData(clinicId) {
         const since8w = new Date(now); since8w.setDate(now.getDate()-56)
         const { data: payData } = await supabase.from("payments")
           .select("final_amount,created_at")
+          .eq("clinic_id",clinicId)
           .is("deleted_at",null)
           .eq("status","paid")
           .gte("created_at", since8w.toISOString())
@@ -100,7 +101,7 @@ function useDashboardData(clinicId) {
         // ── Gráfico 2: Agendamentos por status (mês atual) ─────────
         const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString()
         const { data: apptMonth } = await supabase.from("appointments")
-          .select("status").is("deleted_at",null)
+          .select("status").eq("clinic_id",clinicId).is("deleted_at",null)
           .gte("datetime", monthStart)
         const statusCount = { scheduled:0, completed:0, cancelled:0, no_show:0 }
         ;(apptMonth??[]).forEach(a => { if (statusCount[a.status]!==undefined) statusCount[a.status]++ })
@@ -113,7 +114,7 @@ function useDashboardData(clinicId) {
 
         // ── Gráfico 3: Ocupação por dia da semana ──────────────────
         const { data: apptAll } = await supabase.from("appointments")
-          .select("datetime,status").is("deleted_at",null)
+          .select("datetime,status").eq("clinic_id",clinicId).is("deleted_at",null)
         const dayBuckets = [0,1,2,3,4,5,6].map(d=>({ dia:DAYS[d], total:0, concluido:0, falta:0 }))
         ;(apptAll??[]).forEach(a => {
           const dow = new Date(a.datetime).getDay()
@@ -126,7 +127,7 @@ function useDashboardData(clinicId) {
 
         // ── Gráfico 4: Crescimento de pacientes (últimos 6 meses) ──
         const { data: patsAll } = await supabase.from("patients")
-          .select("created_at").is("deleted_at",null).order("created_at",{ascending:true})
+          .select("created_at").eq("clinic_id",clinicId).is("deleted_at",null).order("created_at",{ascending:true})
         const growthMap = {}
         let running = 0
         ;(patsAll??[]).forEach(p => {

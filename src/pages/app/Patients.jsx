@@ -152,7 +152,7 @@ export default function Patients() {
 
   async function fetchPatients() {
     setFetching(true)
-    const { data, error } = await supabase.from("patients").select("*").is("deleted_at",null).order("created_at",{ascending:false})
+    const { data, error } = await supabase.from("patients").select("*").eq("clinic_id",clinicId).is("deleted_at",null).order("created_at",{ascending:false})
     if (!error) setPatients(data ?? []); else setError(error.message)
     setFetching(false)
   }
@@ -161,7 +161,7 @@ export default function Patients() {
   const searchRemote = useCallback(async (q) => {
     if (!q.trim()) { setRemoteResults(null); return }
     setSearching(true)
-    const { data } = await supabase.from("patients").select("*").is("deleted_at",null)
+    const { data } = await supabase.from("patients").select("*").eq("clinic_id",clinicId).is("deleted_at",null)
       .or(`name.ilike.%${q}%,phone.ilike.%${q}%,email.ilike.%${q}%,cpf.ilike.%${q}%`)
       .order("name").limit(50)
     setRemoteResults(data ?? [])
