@@ -35,61 +35,101 @@ function Toast({ toast }) {
 }
 
 // ─── Tab: Dados gerais ────────────────────────────────────────────────────────
+// Lógica: 
+//   1. Dados base (CPF, nascimento, gênero, endereço, emergência) — sempre visíveis via patient_records
+//   2. Campos da especialidade — carregados de record_templates usando patient.specialty (normalizado)
+//      e salvos/lidos de patient_custom_fields
+//   3. Fallback para "geral" se especialidade do paciente não tiver template
+
+// Normaliza specialty para bater com record_templates (ex: "Fisioterapia" → "fisioterapia")
+function normalizeSpecialty(sp) {
+  if (!sp) return "geral"
+  return sp.toLowerCase()
+    .normalize("NFD").replace(/̀-ͯ/g, "")  // remove acentos
+    .trim()
+}
+
 function TabOverview({ patient, clinicId, clinic, t, isMobile }) {
-  const [record, setRecord] = useState(null)
-  const [loading, setLoading] = useState(true)
-  const [saving, setSaving] = useState(false)
-  const [toast, setToast] = useState(null)
-  const [templates, setTemplates] = useState([])
-  const [useTemplate, setUseTemplate] = useState(false)
-  const [form, setForm] = useState({
-    cpf:"", birth_date:"", gender:"", address:"",
-    emergency_contact:"", emergency_phone:"",
-    allergies:"", medications:"", medical_history:""
+  const [loading,    setLoading]    = useState(true)
+  const [saving,     setSaving]     = useState(false)
+  const [toast,      setToast]      = useState(null)
+  const [templates,  setTemplates]  = useState([])
+  const [record,     setRecord]     = useState(null)
+
+  // Dados base (patient_records)
+  const [baseForm, setBaseForm] = useState({
+    cpf: "", birth_date: "", gender: "", address: "",
+    emergency_contact: "", emergency_phone: "",
   })
 
-  const specialty = clinic?.specialty ?? "geral"
+  // Dados dinâmicos da especialidade (patient_custom_fields)
+  const [customForm, setCustomForm] = useState({})
 
-  function showToast(msg, type="success") { setToast({msg,type}); setTimeout(()=>setToast(null),3000) }
-  function set(k, v) { setForm(f=>({...f,[k]:v})) }
-  function setCustom(k, v) { setForm(f=>({...f,[k]:v})) }
+  const specialty = normalizeSpecialty(patient?.specialty)
+
+  function showToast(msg, type = "success") { setToast({ msg, type }); setTimeout(() => setToast(null), 3000) }
+  function setBase(k, v) { setBaseForm(f => ({ ...f, [k]: v })) }
+  function setCustom(k, v) { setCustomForm(f => ({ ...f, [k]: v })) }
 
   useEffect(() => {
     async function load() {
-      // Busca template da especialidade
-      const { data: tmplData } = await supabase
-        .from("records_templates")
+      setLoading(true)
+
+      // 1. Busca dados base do paciente (patient_records)
+      const { data: baseData } = await supabase
+        .from("patient_records")
+        .select("*")
+        .eq("patient_id", patient.id)
+        .eq("clinic_id", clinicId)
+        .maybeSingle()
+
+      if (baseData) {
+        setRecord(baseData)
+        setBaseForm({
+          cpf:               baseData.cpf               ?? "",
+          birth_date:        baseData.birth_date        ?? "",
+          gender:            baseData.gender            ?? "",
+          address:           baseData.address           ?? "",
+          emergency_contact: baseData.emergency_contact ?? "",
+          emergency_phone:   baseData.emergency_phone   ?? "",
+        })
+      }
+
+      // 2. Busca template da especialidade do paciente (normalizada)
+      //    Tenta a especialidade do paciente; fallback para "geral"
+      let { data: tmplData } = await supabase
+        .from("record_templates")
         .select("*")
         .eq("specialty", specialty)
         .order("sort_order")
 
-      if (tmplData && tmplData.length > 0) {
-        setTemplates(tmplData)
-        setUseTemplate(true)
-        
-        // Busca dados customizados do paciente
-        const { data: customData } = await supabase
-          .from("patient_custom_records")
+      if (!tmplData || tmplData.length === 0) {
+        const { data: fallback } = await supabase
+          .from("record_templates")
           .select("*")
+          .eq("specialty", "geral")
+          .order("sort_order")
+        tmplData = fallback ?? []
+      }
+
+      setTemplates(tmplData)
+
+      // 3. Busca dados customizados já preenchidos (patient_custom_fields)
+      if (tmplData.length > 0) {
+        const { data: customData } = await supabase
+          .from("patient_custom_fields")
+          .select("field_key, value")
           .eq("patient_id", patient.id)
           .eq("clinic_id", clinicId)
 
-        // Preenche o form com dados existentes
-        const customForm = {}
-        tmplData.forEach(t => {
-          const existing = customData?.find(c => c.field_key === t.field_key)
-          customForm[t.field_key] = existing?.value ?? ""
+        const filled = {}
+        tmplData.forEach(f => {
+          const saved = customData?.find(c => c.field_key === f.field_key)
+          filled[f.field_key] = saved?.value ?? ""
         })
-        setForm(customForm)
-      } else {
-        // Fallback: usa patient_records original
-        setUseTemplate(false)
-        const { data } = await supabase.from("patient_records").select("*").eq("patient_id", patient.id).maybeSingle()
-        if (data) { 
-          setRecord(data); 
-          setForm({ cpf:data.cpf??"", birth_date:data.birth_date??"", gender:data.gender??"", address:data.address??"", emergency_contact:data.emergency_contact??"", emergency_phone:data.emergency_phone??"", allergies:data.allergies??"", medications:data.medications??"", medical_history:data.medical_history??"" }) 
-        }
+        setCustomForm(filled)
       }
+
       setLoading(false)
     }
     load()
@@ -97,159 +137,134 @@ function TabOverview({ patient, clinicId, clinic, t, isMobile }) {
 
   async function handleSave() {
     setSaving(true)
-    let error
+    let hasError = false
 
-    if (useTemplate) {
-      // Salvar em patient_custom_records
-      const records = templates.map(field => ({
-        patient_id: patient.id,
-        clinic_id: clinicId,
-        field_key: field.field_key,
-        value: form[field.field_key] || null,
-        updated_at: new Date().toISOString()
-      }))
-      
-      // Upsert para cada campo
-      for (const rec of records) {
-        const { error: upsertError } = await supabase
-          .from("patient_custom_records")
-          .upsert({
-            patient_id: rec.patient_id,
-            clinic_id: rec.clinic_id,
-            field_key: rec.field_key,
-            value: rec.value,
-            updated_at: rec.updated_at
-          }, { onConflict: 'patient_id,clinic_id,field_key' })
-        
-        if (upsertError) { error = upsertError; break }
-      }
+    // Salva dados base em patient_records (upsert)
+    const basePayload = {
+      ...baseForm,
+      patient_id:  patient.id,
+      clinic_id:   clinicId,
+      updated_at:  new Date().toISOString(),
+    }
+    if (record) {
+      const { error } = await supabase.from("patient_records").update(basePayload).eq("id", record.id)
+      if (error) { showToast(error.message, "error"); setSaving(false); return }
     } else {
-      // Salvar em patient_records (fallback original)
-      const payload = { ...form, patient_id: patient.id, clinic_id: clinicId, updated_at: new Date().toISOString() }
-      if (record) {
-        ({ error } = await supabase.from("patient_records").update(payload).eq("id", record.id))
-      } else {
-        const res = await supabase.from("patient_records").insert([payload]).select().single()
-        error = res.error
-        if (!error) setRecord(res.data)
+      const { data: newRec, error } = await supabase.from("patient_records").insert([basePayload]).select().single()
+      if (error) { showToast(error.message, "error"); setSaving(false); return }
+      setRecord(newRec)
+    }
+
+    // Salva campos dinâmicos em patient_custom_fields (upsert por field_key)
+    if (templates.length > 0) {
+      for (const field of templates) {
+        const { error } = await supabase
+          .from("patient_custom_fields")
+          .upsert({
+            patient_id: patient.id,
+            clinic_id:  clinicId,
+            field_key:  field.field_key,
+            value:      customForm[field.field_key] || null,
+            updated_at: new Date().toISOString(),
+          }, { onConflict: "patient_id,clinic_id,field_key" })
+        if (error) { hasError = true; console.error("upsert error:", error.message); break }
       }
     }
 
     setSaving(false)
-    if (error) showToast(error.message, "error")
+    if (hasError) showToast("Erro ao salvar alguns campos", "error")
     else showToast("Dados salvos com sucesso!")
   }
 
-  const col2 = { display:"grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap:14 }
+  const col2 = { display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 14 }
 
-  if (loading) return <div style={{ display:"flex",flexDirection:"column",gap:8 }}>{[1,2,3,4].map(i=><div key={i} className="skeleton-shimmer" style={{ height:48 }}/>)}</div>
+  if (loading) return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+      {[1,2,3,4].map(i => <div key={i} className="skeleton-shimmer" style={{ height: 48 }} />)}
+    </div>
+  )
 
   return (
     <>
       <Toast toast={toast} />
-      <div style={{ display:"flex", flexDirection:"column", gap:20 }}>
+      <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
 
-        {/* Campos dinâmicos baseados no template */}
-        {useTemplate && templates.length > 0 ? (
-          templates.reduce((acc, field, idx) => {
-            // Organiza campos em seções base no sort_order
-            const sectionIdx = Math.floor(idx / 5)
-            if (!acc[sectionIdx]) acc[sectionIdx] = []
-            acc[sectionIdx].push(field)
-            return acc
-          }, []).map((sectionFields, sectionIdx) => (
-            <Section key={sectionIdx} title={`Informações ${sectionIdx + 1}`} t={t}>
-              <div style={{ display:"flex", flexDirection:"column", gap:14 }}>
-                {sectionFields.map(field => (
-                  <Field key={field.field_key} label={field.label} t={t}>
-                    {field.type === "textarea" ? (
-                      <textarea 
-                        placeholder={field.placeholder || ""} 
-                        value={form[field.field_key] || ""} 
-                        onChange={e => setCustom(field.field_key, e.target.value)}
-                        rows={3}
-                        style={{ background:t.bgInput, border:`1px solid ${t.border}`, borderRadius:8, padding:"10px 12px", fontSize:14, color:t.textPrimary, outline:"none", width:"100%", boxSizing:"border-box", resize:"vertical", lineHeight:1.6 }}
-                        onFocus={e=>e.target.style.borderColor=t.accent} 
-                        onBlur={e=>e.target.style.borderColor=t.border}
-                      />
-                    ) : field.type === "select" ? (
-                      <select 
-                        value={form[field.field_key] || ""} 
-                        onChange={e => setCustom(field.field_key, e.target.value)}
-                        style={{ background:t.bgInput, border:`1px solid ${t.border}`, borderRadius:8, padding:"10px 12px", fontSize:14, color:t.textPrimary, outline:"none", width:"100%", boxSizing:"border-box", cursor:"pointer" }}
-                      >
-                        <option value="">Selecione...</option>
-                        {(field.option || []).map(opt => (
-                          <option key={opt} value={opt}>{opt}</option>
-                        ))}
-                      </select>
-                    ) : field.type === "date" ? (
-                      <Input 
-                        type="date" 
-                        placeholder={field.placeholder || ""} 
-                        value={form[field.field_key] || ""} 
-                        onChange={e => setCustom(field.field_key, e.target.value)} 
-                      />
-                    ) : (
-                      <Input 
-                        type="text" 
-                        placeholder={field.placeholder || ""} 
-                        value={form[field.field_key] || ""} 
-                        onChange={e => setCustom(field.field_key, e.target.value)} 
-                      />
-                    )}
-                  </Field>
-                ))}
-              </div>
-            </Section>
-          ))
-        ) : (
-          <>
-            {/* Campos originais - fallback */}
-            <Section title="Dados pessoais" t={t}>
-              <div style={col2}>
-                {[["CPF","text","000.000.000-00","cpf"],["Data de nascimento","date","","birth_date"]].map(([lbl,type,ph,key])=>(
-                  <Field key={key} label={lbl} t={t}>
-                    <Input type={type} placeholder={ph} value={form[key]} onChange={e=>set(key,e.target.value)} />
-                  </Field>
-                ))}
-                <Field label="Gênero" t={t}>
-                  <select value={form.gender} onChange={e=>set("gender",e.target.value)} style={{ background:t.bgInput, border:`1px solid ${t.border}`, borderRadius:8, padding:"10px 12px", fontSize:14, color:t.textPrimary, outline:"none", width:"100%", boxSizing:"border-box", cursor:"pointer" }}>
-                    <option value="">Não informado</option>
-                    {["Masculino","Feminino","Não-binário","Outro"].map(g=><option key={g} value={g}>{g}</option>)}
-                  </select>
+        {/* ── Dados base — sempre visíveis ── */}
+        <Section title="Dados pessoais" t={t}>
+          <div style={col2}>
+            <Field label="CPF" t={t}>
+              <Input type="text" placeholder="000.000.000-00" value={baseForm.cpf} onChange={e => setBase("cpf", e.target.value)} />
+            </Field>
+            <Field label="Data de nascimento" t={t}>
+              <Input type="date" value={baseForm.birth_date} onChange={e => setBase("birth_date", e.target.value)} />
+            </Field>
+            <Field label="Gênero" t={t}>
+              <select value={baseForm.gender} onChange={e => setBase("gender", e.target.value)}
+                style={{ background: t.bgInput, border: `1px solid ${t.border}`, borderRadius: 8, padding: "10px 12px", fontSize: 14, color: t.textPrimary, outline: "none", width: "100%", boxSizing: "border-box", cursor: "pointer" }}>
+                <option value="">Não informado</option>
+                {["Masculino","Feminino","Não-binário","Outro"].map(g => <option key={g} value={g}>{g}</option>)}
+              </select>
+            </Field>
+            <Field label="Endereço" t={t}>
+              <Input type="text" placeholder="Rua, número, bairro" value={baseForm.address} onChange={e => setBase("address", e.target.value)} />
+            </Field>
+          </div>
+        </Section>
+
+        <Section title="Contato de emergência" t={t}>
+          <div style={col2}>
+            <Field label="Nome" t={t}>
+              <Input type="text" placeholder="Nome do contato" value={baseForm.emergency_contact} onChange={e => setBase("emergency_contact", e.target.value)} />
+            </Field>
+            <Field label="Telefone" t={t}>
+              <Input type="text" placeholder="(00) 00000-0000" value={baseForm.emergency_phone} onChange={e => setBase("emergency_phone", e.target.value)} />
+            </Field>
+          </div>
+        </Section>
+
+        {/* ── Campos dinâmicos da especialidade ── */}
+        {templates.length > 0 && (
+          <Section title={`Ficha clínica · ${patient?.specialty ?? "Geral"}`} t={t}>
+            <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+              {templates.map(field => (
+                <Field key={field.field_key} label={field.required ? `${field.label} *` : field.label} t={t}>
+                  {field.type === "textarea" ? (
+                    <textarea
+                      placeholder={field.placeholder || ""}
+                      value={customForm[field.field_key] || ""}
+                      onChange={e => setCustom(field.field_key, e.target.value)}
+                      rows={3}
+                      style={{ background: t.bgInput, border: `1px solid ${t.border}`, borderRadius: 8, padding: "10px 12px", fontSize: 14, color: t.textPrimary, outline: "none", width: "100%", boxSizing: "border-box", resize: "vertical", lineHeight: 1.6 }}
+                      onFocus={e => e.target.style.borderColor = t.accent}
+                      onBlur={e  => e.target.style.borderColor = t.border}
+                    />
+                  ) : field.type === "select" ? (
+                    <select
+                      value={customForm[field.field_key] || ""}
+                      onChange={e => setCustom(field.field_key, e.target.value)}
+                      style={{ background: t.bgInput, border: `1px solid ${t.border}`, borderRadius: 8, padding: "10px 12px", fontSize: 14, color: t.textPrimary, outline: "none", width: "100%", boxSizing: "border-box", cursor: "pointer" }}
+                    >
+                      <option value="">Selecione...</option>
+                      {(Array.isArray(field.options) ? field.options : JSON.parse(field.options || "[]")).map(opt => (
+                        <option key={opt} value={opt}>{opt}</option>
+                      ))}
+                    </select>
+                  ) : (
+                    <Input
+                      type={field.type === "date" ? "date" : "text"}
+                      placeholder={field.placeholder || ""}
+                      value={customForm[field.field_key] || ""}
+                      onChange={e => setCustom(field.field_key, e.target.value)}
+                    />
+                  )}
                 </Field>
-                <Field label="Endereço" t={t}>
-                  <Input type="text" placeholder="Rua, número, bairro" value={form.address} onChange={e=>set("address",e.target.value)} />
-                </Field>
-              </div>
-            </Section>
-
-            <Section title="Contato de emergência" t={t}>
-              <div style={col2}>
-                {[["Nome","text","Nome do contato","emergency_contact"],["Telefone","text","(00) 00000-0000","emergency_phone"]].map(([lbl,type,ph,key])=>(
-                  <Field key={key} label={lbl} t={t}>
-                    <Input type={type} placeholder={ph} value={form[key]} onChange={e=>set(key,e.target.value)} />
-                  </Field>
-                ))}
-              </div>
-            </Section>
-
-            <Section title="Saúde" t={t}>
-              <div style={{ display:"flex", flexDirection:"column", gap:14 }}>
-                {[["Alergias","Ex: Penicilina, Látex...","allergies"],["Medicamentos em uso","Ex: Losartana 50mg...","medications"],["Histórico médico","Cirurgias, doenças crônicas, observações...","medical_history"]].map(([lbl,ph,key])=>(
-                  <Field key={key} label={lbl} t={t}>
-                    <textarea placeholder={ph} value={form[key]} onChange={e=>set(key,e.target.value)} rows={3}
-                      style={{ background:t.bgInput, border:`1px solid ${t.border}`, borderRadius:8, padding:"10px 12px", fontSize:14, color:t.textPrimary, outline:"none", width:"100%", boxSizing:"border-box", resize:"vertical", lineHeight:1.6 }}
-                      onFocus={e=>e.target.style.borderColor=t.accent} onBlur={e=>e.target.style.borderColor=t.border} />
-                  </Field>
-                ))}
-              </div>
-            </Section>
-          </>
+              ))}
+            </div>
+          </Section>
         )}
 
-        <Button onClick={handleSave} disabled={saving} loading={saving} fullWidth={isMobile} style={{ alignSelf:"flex-start", width: isMobile?"100%":"auto" }}>
+        <Button onClick={handleSave} disabled={saving} loading={saving}
+          fullWidth={isMobile} style={{ alignSelf: "flex-start", width: isMobile ? "100%" : "auto" }}>
           {saving ? "Salvando..." : "Salvar dados"}
         </Button>
       </div>
