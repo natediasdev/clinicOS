@@ -1,59 +1,68 @@
 /**
  * DayView.jsx
  * Agenda visual do dia — blocos por horário, status colorido, navegação por data.
- * Usado dentro da página Appointments como terceiro modo de visualização.
  *
  * Props:
- *   appointments  — array de agendamentos do dia selecionado
- *   patientMap    — { [client_id]: { name, phone } }
- *   staffMap      — { [staff_id]: { name } }
+ *   appointments    — array de agendamentos
+ *   patientMap      — { [client_id]: { name, phone } }
+ *   staffMap        — { [staff_id]: { name } }
  *   onStatusChange(id, newStatus)
  *   onDelete(id)
- *   selectedDate  — Date object
+ *   selectedDate    — Date object
  *   onDateChange(Date)
  *   isMobile
+ *   isAdmin         — booleano: admin vê staff atribuído em destaque
  */
 
+import { useState } from "react"
 import { useTheme } from "../context/ThemeContext"
 import { getStatusConfig } from "../config/statusColors"
 
 const HOUR_START = 7
 const HOUR_END   = 20
-const HOURS = Array.from({ length: HOUR_END - HOUR_START }, (_, i) => HOUR_START + i)
+const HOURS      = Array.from({ length: HOUR_END - HOUR_START }, (_, i) => HOUR_START + i)
 
 const DAYS_PT   = ["Dom","Seg","Ter","Qua","Qui","Sex","Sáb"]
-const MONTHS_PT = ["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"]
+const MONTHS_PT = ["Janeiro","Fevereiro","Março","Abril","Maio","Junho",
+                   "Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"]
 
-function formatHour(h) {
-  return `${String(h).padStart(2,"0")}:00`
+// Cores por especialidade — complementam a cor de status
+const SPECIALTY_COLORS = {
+  fisioterapia: { color: "#3b82f6", label: "Fisio"    },
+  pilates:      { color: "#8b5cf6", label: "Pilates"  },
+  odontologia:  { color: "#06b6d4", label: "Odonto"   },
+  psicologia:   { color: "#ec4899", label: "Psico"    },
+  nutricao:     { color: "#22c55e", label: "Nutri"    },
+  estetica:     { color: "#f59e0b", label: "Estética" },
+  geral:        { color: "#64748b", label: "Geral"    },
 }
 
-function getHourFromDate(iso) {
-  return new Date(iso).getHours()
+function getSpecialtyStyle(specialty) {
+  if (!specialty) return null
+  const key = specialty.toLowerCase()
+    .normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim()
+  return SPECIALTY_COLORS[key] ?? { color: "#64748b", label: specialty }
 }
 
-function getMinuteFromDate(iso) {
-  return new Date(iso).getMinutes()
-}
+// Todos os status possíveis para as pills
+const STATUS_OPTIONS = ["scheduled", "completed", "cancelled", "no_show"]
 
+function formatHour(h) { return `${String(h).padStart(2,"0")}:00` }
 function formatTime(iso) {
   if (!iso) return "--"
   return new Date(iso).toLocaleTimeString("pt-BR", { hour:"2-digit", minute:"2-digit" })
 }
-
 function isSameDay(a, b) {
   return a.getFullYear() === b.getFullYear() &&
          a.getMonth()    === b.getMonth()    &&
          a.getDate()     === b.getDate()
 }
 
-// ─── WeekStrip — barra de dias da semana ──────────────────────────────────────
+// ─── WeekStrip ────────────────────────────────────────────────────────────────
 function WeekStrip({ selectedDate, onDateChange, appointments, t }) {
   const today = new Date()
-
-  // Semana da data selecionada (seg → dom)
-  const dow     = selectedDate.getDay()
-  const monday  = new Date(selectedDate)
+  const dow   = selectedDate.getDay()
+  const monday = new Date(selectedDate)
   monday.setDate(selectedDate.getDate() - (dow === 0 ? 6 : dow - 1))
 
   const days = Array.from({ length: 7 }, (_, i) => {
@@ -62,50 +71,43 @@ function WeekStrip({ selectedDate, onDateChange, appointments, t }) {
     return d
   })
 
-  function apptCountForDay(d) {
-    return appointments.filter(a => isSameDay(new Date(a.datetime), d)).length
-  }
-
   return (
-    <div style={{
-      display: "flex", alignItems: "center", gap: 4,
-      padding: "12px 0", overflowX: "auto",
-    }}>
-      {/* Seta anterior */}
-      <button onClick={() => { const d = new Date(selectedDate); d.setDate(d.getDate()-7); onDateChange(d) }}
-        style={{ background:"transparent", border:`1px solid ${t.border}`, color:t.textMuted, borderRadius:8,
-                 width:32, height:32, cursor:"pointer", flexShrink:0, fontSize:16 }}>
+    <div style={{ display:"flex", alignItems:"center", gap:4, padding:"12px 0", overflowX:"auto" }}>
+      <button
+        onClick={() => { const d = new Date(selectedDate); d.setDate(d.getDate()-7); onDateChange(d) }}
+        style={{ background:"transparent", border:`1px solid ${t.border}`, color:t.textMuted,
+                 borderRadius:8, width:32, height:32, cursor:"pointer", flexShrink:0, fontSize:16 }}>
         ‹
       </button>
 
       {days.map(d => {
         const isSelected = isSameDay(d, selectedDate)
         const isToday    = isSameDay(d, today)
-        const count      = apptCountForDay(d)
+        const count      = appointments.filter(a => isSameDay(new Date(a.datetime), d)).length
 
         return (
           <button key={d.toISOString()} onClick={() => onDateChange(d)} style={{
-            flex: 1, minWidth: 44, height: 64,
-            display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 3,
+            flex:1, minWidth:44, height:64,
+            display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", gap:3,
             background: isSelected ? t.accent : isToday ? `${t.accent}18` : "transparent",
             border: `1px solid ${isSelected ? t.accent : isToday ? `${t.accent}44` : t.border}`,
-            borderRadius: 10, cursor: "pointer", transition: "all .15s",
+            borderRadius:10, cursor:"pointer", transition:"all .15s",
           }}>
-            <span style={{ fontSize: 10, fontWeight: 600, color: isSelected ? "#fff" : t.textFaint,
-                           textTransform: "uppercase", letterSpacing: ".04em" }}>
+            <span style={{ fontSize:10, fontWeight:600, textTransform:"uppercase", letterSpacing:".04em",
+                           color: isSelected ? "#fff" : t.textFaint }}>
               {DAYS_PT[d.getDay()]}
             </span>
-            <span style={{ fontSize: 16, fontWeight: 800,
+            <span style={{ fontSize:16, fontWeight:800,
                            color: isSelected ? "#fff" : isToday ? t.accent : t.textPrimary }}>
               {d.getDate()}
             </span>
             {count > 0 && (
               <span style={{
-                width: 18, height: 14, borderRadius: 99,
+                width:18, height:14, borderRadius:99,
                 background: isSelected ? "rgba(255,255,255,0.3)" : `${t.accent}30`,
                 color: isSelected ? "#fff" : t.accent,
-                fontSize: 9, fontWeight: 700,
-                display: "flex", alignItems: "center", justifyContent: "center",
+                fontSize:9, fontWeight:700,
+                display:"flex", alignItems:"center", justifyContent:"center",
               }}>
                 {count}
               </span>
@@ -114,84 +116,141 @@ function WeekStrip({ selectedDate, onDateChange, appointments, t }) {
         )
       })}
 
-      {/* Seta próxima */}
-      <button onClick={() => { const d = new Date(selectedDate); d.setDate(d.getDate()+7); onDateChange(d) }}
-        style={{ background:"transparent", border:`1px solid ${t.border}`, color:t.textMuted, borderRadius:8,
-                 width:32, height:32, cursor:"pointer", flexShrink:0, fontSize:16 }}>
+      <button
+        onClick={() => { const d = new Date(selectedDate); d.setDate(d.getDate()+7); onDateChange(d) }}
+        style={{ background:"transparent", border:`1px solid ${t.border}`, color:t.textMuted,
+                 borderRadius:8, width:32, height:32, cursor:"pointer", flexShrink:0, fontSize:16 }}>
         ›
       </button>
     </div>
   )
 }
 
-// ─── AppointmentBlock — bloco de agendamento na grade ─────────────────────────
-function AppointmentBlock({ appt, patientMap, staffMap, onStatusChange, onDelete, t }) {
-  const cfg     = getStatusConfig(appt.status)
-  const patient = patientMap[appt.client_id]
-  const staff   = staffMap?.[appt.staff_id]
+// ─── StatusPills — troca de status com pills clicáveis ────────────────────────
+function StatusPills({ currentStatus, apptId, onStatusChange, changing, t }) {
+  return (
+    <div style={{ display:"flex", gap:5, flexWrap:"wrap", marginTop:10 }}>
+      {STATUS_OPTIONS.map(s => {
+        const cfg       = getStatusConfig(s)
+        const isActive  = s === currentStatus
+        const isLoading = changing === apptId && !isActive
+
+        return (
+          <button
+            key={s}
+            disabled={isActive || isLoading}
+            onClick={e => { e.stopPropagation(); onStatusChange(apptId, s) }}
+            style={{
+              padding: "5px 12px",
+              borderRadius: 99,
+              fontSize: 12,
+              fontWeight: 700,
+              cursor: isActive ? "default" : "pointer",
+              fontFamily: "inherit",
+              transition: "all .15s",
+              border: `1px solid ${isActive ? cfg.color : t.border}`,
+              background: isActive ? cfg.bg : "transparent",
+              color: isActive ? cfg.color : t.textFaint,
+              opacity: isLoading ? 0.4 : 1,
+              transform: isActive ? "scale(1.04)" : "scale(1)",
+            }}
+          >
+            {cfg.label}
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
+// ─── AppointmentBlock ─────────────────────────────────────────────────────────
+function AppointmentBlock({ appt, patientMap, staffMap, onStatusChange, onDelete, isAdmin, changingStatus, t }) {
+  const cfg       = getStatusConfig(appt.status)
+  const patient   = patientMap[appt.client_id]
+  const staff     = staffMap?.[appt.staff_id]
+  const spStyle   = getSpecialtyStyle(appt.specialty)
 
   return (
     <div style={{
-      background: `${cfg.color}12`,
-      border: `1px solid ${cfg.color}44`,
-      borderLeft: `3px solid ${cfg.color}`,
-      borderRadius: "0 8px 8px 0",
-      padding: "8px 10px",
-      display: "flex", flexDirection: "column", gap: 4,
-      minHeight: 52,
+      background: `${cfg.color}10`,
+      border: `1px solid ${cfg.color}40`,
+      borderLeft: `4px solid ${cfg.color}`,
+      borderRadius: "0 10px 10px 0",
+      padding: "12px 14px",
+      display: "flex", flexDirection: "column", gap: 0,
     }}>
-      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", gap:6 }}>
+      {/* Linha 1 — paciente + badge especialidade + botão excluir */}
+      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", gap:8 }}>
         <div style={{ flex:1, minWidth:0 }}>
-          <span style={{ fontSize:13, fontWeight:700, color:t.textPrimary,
+          <span style={{ fontSize:14, fontWeight:700, color:t.textPrimary,
                          display:"block", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
             {patient?.name ?? "Paciente não encontrado"}
           </span>
           {patient?.phone && (
-            <span style={{ fontSize:11, color:t.textFaint }}>{patient.phone}</span>
-          )}
-          {staff && (
-            <span style={{ fontSize:11, color:t.textGhost, display:"block", marginTop:1 }}>
-              👤 {staff.name}
+            <span style={{ fontSize:11, color:t.textFaint, display:"block", marginTop:1 }}>
+              {patient.phone}
             </span>
           )}
         </div>
 
-        <div style={{ display:"flex", flexDirection:"column", alignItems:"flex-end", gap:4, flexShrink:0 }}>
-          <span style={{
-            fontSize: 10, fontWeight: 700, padding: "2px 8px", borderRadius: 99,
-            color: cfg.color, background: cfg.bg,
-            border: `1px solid ${cfg.border}`,
-            textTransform: "uppercase", letterSpacing: ".04em",
-          }}>
-            {cfg.label}
-          </span>
-          <div style={{ display:"flex", gap:4 }}>
-            <select
-              value={appt.status}
-              onChange={e => onStatusChange(appt.id, e.target.value)}
-              onClick={e => e.stopPropagation()}
-              style={{
-                background: t.bgInset, border:`1px solid ${t.border}`, borderRadius:5,
-                padding:"2px 4px", fontSize:10, color:t.textMuted, cursor:"pointer", outline:"none",
-              }}
-            >
-              {["scheduled","completed","cancelled","no_show"].map(s => {
-                const c = getStatusConfig(s)
-                return <option key={s} value={s}>{c.label}</option>
-              })}
-            </select>
-            <button
-              onClick={e => { e.stopPropagation(); onDelete(appt.id) }}
-              style={{
-                background:"transparent", border:`1px solid ${t.border}`, color:t.textFaint,
-                borderRadius:5, padding:"2px 6px", fontSize:10, cursor:"pointer",
-              }}
-            >
-              ✕
-            </button>
-          </div>
+        <div style={{ display:"flex", alignItems:"center", gap:6, flexShrink:0 }}>
+          {/* Badge especialidade */}
+          {spStyle && (
+            <span style={{
+              fontSize:10, fontWeight:700, padding:"2px 8px", borderRadius:99,
+              color: spStyle.color,
+              background: `${spStyle.color}18`,
+              border: `1px solid ${spStyle.color}33`,
+              letterSpacing: ".04em",
+            }}>
+              {spStyle.label}
+            </span>
+          )}
+
+          {/* Botão excluir */}
+          <button
+            onClick={e => { e.stopPropagation(); onDelete(appt.id) }}
+            style={{
+              background:"transparent", border:`1px solid ${t.border}`,
+              color: t.textFaint, borderRadius:6,
+              width:24, height:24, fontSize:12,
+              cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center",
+              flexShrink:0,
+            }}
+          >
+            ✕
+          </button>
         </div>
       </div>
+
+      {/* Linha 2 — staff (só para admin) */}
+      {isAdmin && staff && (
+        <div style={{
+          display:"flex", alignItems:"center", gap:7, marginTop:8,
+          paddingTop:8, borderTop:`1px solid ${cfg.color}20`,
+        }}>
+          <div style={{
+            width:22, height:22, borderRadius:"50%", flexShrink:0,
+            background: `${t.accent}22`,
+            display:"flex", alignItems:"center", justifyContent:"center",
+            fontSize:11, fontWeight:800, color:t.accent,
+          }}>
+            {staff.name?.[0]?.toUpperCase() ?? "?"}
+          </div>
+          <span style={{ fontSize:12, fontWeight:600, color:t.textBody }}>
+            {staff.name}
+          </span>
+        </div>
+      )}
+
+      {/* Linha 3 — pills de status */}
+      <StatusPills
+        currentStatus={appt.status}
+        apptId={appt.id}
+        onStatusChange={onStatusChange}
+        changing={changingStatus}
+        t={t}
+      />
     </div>
   )
 }
@@ -206,16 +265,24 @@ export default function DayView({
   selectedDate,
   onDateChange,
   isMobile,
+  isAdmin = true,
 }) {
   const { t } = useTheme()
   const today  = new Date()
 
-  // Filtra só os agendamentos do dia selecionado
-  const dayAppts = appointments.filter(a =>
-    isSameDay(new Date(a.datetime), selectedDate)
-  ).sort((a, b) => new Date(a.datetime) - new Date(b.datetime))
+  // Estado local de "mudando status" para feedback visual nas pills
+  const [changingStatus, setChangingStatus] = useState(null)
 
-  // Contadores de status
+  async function handleStatusChange(id, newStatus) {
+    setChangingStatus(id)
+    await onStatusChange(id, newStatus)
+    setChangingStatus(null)
+  }
+
+  const dayAppts = appointments
+    .filter(a => isSameDay(new Date(a.datetime), selectedDate))
+    .sort((a, b) => new Date(a.datetime) - new Date(b.datetime))
+
   const counts = dayAppts.reduce((acc, a) => {
     acc[a.status] = (acc[a.status] || 0) + 1
     return acc
@@ -226,16 +293,13 @@ export default function DayView({
   return (
     <div style={{ fontFamily:"'DM Sans','Segoe UI',sans-serif" }}>
 
-      {/* ── Cabeçalho da data ── */}
-      <div style={{
-        background: t.bgCard, borderRadius: 12, padding: "16px 20px", marginBottom: 12,
-      }}>
-        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:12 }}>
+      {/* ── Cabeçalho + WeekStrip ── */}
+      <div style={{ background:t.bgCard, borderRadius:12, padding:"16px 20px", marginBottom:12 }}>
+        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:12, gap:12, flexWrap:"wrap" }}>
           <div>
             <h2 style={{ fontSize:16, fontWeight:800, color:t.textPrimary, margin:0 }}>
               {isToday ? "Hoje" : DAYS_PT[selectedDate.getDay()]}{", "}
-              {selectedDate.getDate()} de {["Janeiro","Fevereiro","Março","Abril","Maio","Junho",
-                "Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"][selectedDate.getMonth()]}
+              {selectedDate.getDate()} de {MONTHS_PT[selectedDate.getMonth()]}
             </h2>
             <p style={{ fontSize:12, color:t.textFaint, margin:"2px 0 0" }}>
               {dayAppts.length === 0
@@ -244,8 +308,8 @@ export default function DayView({
             </p>
           </div>
 
-          {/* Status pills */}
-          <div style={{ display:"flex", gap:6, flexWrap:"wrap", justifyContent:"flex-end" }}>
+          {/* Contadores de status do dia */}
+          <div style={{ display:"flex", gap:6, flexWrap:"wrap" }}>
             {Object.entries(counts).map(([status, count]) => {
               const cfg = getStatusConfig(status)
               return (
@@ -260,7 +324,6 @@ export default function DayView({
           </div>
         </div>
 
-        {/* WeekStrip */}
         <WeekStrip
           selectedDate={selectedDate}
           onDateChange={onDateChange}
@@ -270,79 +333,76 @@ export default function DayView({
       </div>
 
       {/* ── Grade de horários ── */}
-      <div style={{ background: t.bgCard, borderRadius: 12, overflow: "hidden" }}>
+      <div style={{ background:t.bgCard, borderRadius:12, overflow:"hidden" }}>
         {dayAppts.length === 0 && (
           <div style={{
-            padding: "14px 20px", borderBottom: `1px solid ${t.bgInset}`,
-            display: "flex", alignItems: "center", gap: 8,
-            background: `${t.accent}08`,
+            padding:"12px 20px", borderBottom:`1px solid ${t.bgInset}`,
+            background:`${t.accent}08`,
           }}>
             <span style={{ fontSize:12, color:t.textFaint }}>
-              Nenhum agendamento neste dia — clique em "+ Novo agendamento" para agendar
+              Nenhum agendamento — clique em "+ Novo agendamento" para agendar
             </span>
           </div>
         )}
+
         {HOURS.map(hour => {
-            const apptAtHour = dayAppts.filter(a => getHourFromDate(a.datetime) === hour)
-            const hasAppt    = apptAtHour.length > 0
-            const isPast     = isToday && hour < new Date().getHours()
-            const isCurrent  = isToday && hour === new Date().getHours()
+          const apptAtHour = dayAppts.filter(a => new Date(a.datetime).getHours() === hour)
+          const hasAppt    = apptAtHour.length > 0
+          const isPast     = isToday && hour < new Date().getHours()
+          const isCurrent  = isToday && hour === new Date().getHours()
 
-            return (
-              <div key={hour} style={{
-                display: "grid",
-                gridTemplateColumns: isMobile ? "48px 1fr" : "64px 1fr",
-                borderBottom: `1px solid ${t.bgInset}`,
-                minHeight: hasAppt ? "auto" : 52,
-                background: isCurrent ? `${t.accent}06` : "transparent",
+          return (
+            <div key={hour} style={{
+              display: "grid",
+              gridTemplateColumns: isMobile ? "48px 1fr" : "64px 1fr",
+              borderBottom: `1px solid ${t.bgInset}`,
+              minHeight: hasAppt ? "auto" : 52,
+              background: isCurrent ? `${t.accent}06` : "transparent",
+            }}>
+              {/* Hora */}
+              <div style={{
+                padding: "14px 8px 14px 16px",
+                borderRight: `1px solid ${t.bgInset}`,
+                display:"flex", alignItems:"flex-start",
               }}>
-                {/* Coluna de hora */}
-                <div style={{
-                  padding: "14px 8px 14px 16px",
-                  borderRight: `1px solid ${t.bgInset}`,
-                  display: "flex", alignItems: "flex-start",
+                <span style={{
+                  fontSize:12, fontWeight: isCurrent ? 700 : 500,
+                  color: isCurrent ? t.accent : isPast ? t.textDisabled : t.textGhost,
                 }}>
-                  <span style={{
-                    fontSize: 12, fontWeight: isCurrent ? 700 : 500,
-                    color: isCurrent ? t.accent : isPast ? t.textDisabled : t.textGhost,
-                  }}>
-                    {formatHour(hour)}
-                  </span>
-                  {isCurrent && (
-                    <span style={{
-                      width: 6, height: 6, borderRadius: "50%",
-                      background: t.accent, marginLeft: 4, marginTop: 4, flexShrink: 0,
-                    }}/>
-                  )}
-                </div>
-
-                {/* Coluna de agendamentos */}
-                <div style={{
-                  padding: hasAppt ? "8px 12px" : "0 12px",
-                  display: "flex", flexDirection: "column", gap: 6,
-                  opacity: isPast && !hasAppt ? 0.4 : 1,
-                }}>
-                  {apptAtHour.map(appt => (
-                    <div key={appt.id}>
-                      <span style={{ fontSize:11, color:t.textFaint, marginBottom:3, display:"block" }}>
-                        {formatTime(appt.datetime)}
-                        {getMinuteFromDate(appt.datetime) > 0 && ""}
-                      </span>
-                      <AppointmentBlock
-                        appt={appt}
-                        patientMap={patientMap}
-                        staffMap={staffMap}
-                        onStatusChange={onStatusChange}
-                        onDelete={onDelete}
-                        t={t}
-                      />
-                    </div>
-                  ))}
-                </div>
+                  {formatHour(hour)}
+                </span>
+                {isCurrent && (
+                  <span style={{ width:6, height:6, borderRadius:"50%", background:t.accent, marginLeft:4, marginTop:4, flexShrink:0 }}/>
+                )}
               </div>
-            )
-          })}
-        
+
+              {/* Agendamentos */}
+              <div style={{
+                padding: hasAppt ? "8px 12px" : "0 12px",
+                display:"flex", flexDirection:"column", gap:8,
+                opacity: isPast && !hasAppt ? 0.35 : 1,
+              }}>
+                {apptAtHour.map(appt => (
+                  <div key={appt.id}>
+                    <span style={{ fontSize:11, color:t.textFaint, marginBottom:4, display:"block", fontWeight:600 }}>
+                      {formatTime(appt.datetime)}
+                    </span>
+                    <AppointmentBlock
+                      appt={appt}
+                      patientMap={patientMap}
+                      staffMap={staffMap}
+                      onStatusChange={handleStatusChange}
+                      onDelete={onDelete}
+                      isAdmin={isAdmin}
+                      changingStatus={changingStatus}
+                      t={t}
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+          )
+        })}
       </div>
     </div>
   )
