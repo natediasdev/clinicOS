@@ -164,7 +164,7 @@ function StatusPills({ currentStatus, apptId, onStatusChange, changing, t }) {
 }
 
 // ─── AppointmentBlock ─────────────────────────────────────────────────────────
-function AppointmentBlock({ appt, patientMap, staffMap, onStatusChange, onDelete, isAdmin, changingStatus, t }) {
+function AppointmentBlock({ appt, patientMap, staffMap, onStatusChange, onDelete, onEdit, isAdmin, changingStatus, t }) {
   const cfg       = getStatusConfig(appt.status)
   const patient   = patientMap[appt.client_id]
   const staff     = staffMap?.[appt.staff_id]
@@ -207,6 +207,23 @@ function AppointmentBlock({ appt, patientMap, staffMap, onStatusChange, onDelete
             </span>
           )}
 
+          {/* Botão editar */}
+          <button
+            onClick={e => { e.stopPropagation(); onEdit && onEdit(appt) }}
+            title="Editar agendamento"
+            style={{
+              background:"transparent", border:`1px solid ${t.border}`,
+              color: t.textFaint, borderRadius:6,
+              width:24, height:24, fontSize:11,
+              cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center",
+              flexShrink:0,
+            }}
+          >
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+              <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+            </svg>
+          </button>
           {/* Botão excluir */}
           <button
             onClick={e => { e.stopPropagation(); onDelete(appt.id) }}
@@ -262,6 +279,7 @@ export default function DayView({
   staffMap,
   onStatusChange,
   onDelete,
+  onEdit,
   selectedDate,
   onDateChange,
   isMobile,
@@ -393,6 +411,7 @@ export default function DayView({
                       staffMap={staffMap}
                       onStatusChange={handleStatusChange}
                       onDelete={onDelete}
+                      onEdit={onEdit}
                       isAdmin={isAdmin}
                       changingStatus={changingStatus}
                       t={t}
