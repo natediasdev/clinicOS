@@ -84,7 +84,29 @@ export default function AppLayout({ children }) {
   const [menuOpen, setMenuOpen] = useState(false)
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 768)
 
-  const showUpgradeBanner = clinic?.plan === "free" && !clinic?.trial_end
+  // ── Lógica do banner ────────────────────────────────────────────────────────
+  // 3 estados possíveis:
+  //  "upgrade"  — plano free sem trial → banner de upgrade permanente
+  //  "trial"    — em trial ativo → banner com dias restantes
+  //  "expiring" — trial expirando em <= 3 dias → banner urgente
+  //  null       — plano pro ativo ou trial com bastante tempo → sem banner
+  const bannerState = (() => {
+    if (!clinic) return null
+    const { plan, trial_end } = clinic
+    if (plan === "free" && !trial_end) return "upgrade"
+    if (plan === "free" && trial_end)  return "upgrade"   // trial expirou, voltou a free
+    if (plan === "pro" && trial_end) {
+      const daysLeft = Math.ceil((new Date(trial_end) - new Date()) / (1000 * 60 * 60 * 24))
+      if (daysLeft <= 0)  return "upgrade"    // trial expirado
+      if (daysLeft <= 3)  return "expiring"   // urgente
+      return "trial"                          // trial normal
+    }
+    return null  // pro ativo sem trial
+  })()
+  const trialDaysLeft = clinic?.trial_end
+    ? Math.max(0, Math.ceil((new Date(clinic.trial_end) - new Date()) / (1000 * 60 * 60 * 24)))
+    : 0
+  const showUpgradeBanner = !!bannerState
 
   useEffect(() => {
     function handleResize() {
@@ -383,9 +405,13 @@ export default function AppLayout({ children }) {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.4 }}
             style={{
-              background: "linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%)",
+              background: bannerState === "expiring"
+                ? "linear-gradient(135deg, #f59e0b 0%, #ef4444 100%)"
+                : bannerState === "trial"
+                ? "linear-gradient(135deg, #3b82f6 0%, #06b6d4 100%)"
+                : "linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%)",
               borderRadius: 12,
-              padding: isMobile ? "14px 16px" : "16px 20px",
+              padding: isMobile ? "14px 16px" : "14px 20px",
               marginBottom: 20,
               display: "flex",
               alignItems: "center",
@@ -395,19 +421,23 @@ export default function AppLayout({ children }) {
             }}
           >
             <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-              <motion.div
-                animate={{ rotate: [0, 10, -10, 0] }}
-                transition={{ duration: 2, repeat: Infinity, repeatDelay: 3 }}
-                style={{ fontSize: 24 }}
-              >
-                ✨
-              </motion.div>
+              <span style={{ fontSize: 20, flexShrink: 0 }}>
+                {bannerState === "expiring" ? "⚠️" : bannerState === "trial" ? "🕐" : "✨"}
+              </span>
               <div>
                 <div style={{ color: "#fff", fontWeight: 700, fontSize: isMobile ? 13 : 14 }}>
-                  Desbloqueie todos os recursos
+                  {bannerState === "expiring"
+                    ? `Trial expira em ${trialDaysLeft} dia${trialDaysLeft !== 1 ? "s" : ""}!`
+                    : bannerState === "trial"
+                    ? `Trial ativo · ${trialDaysLeft} dias restantes`
+                    : "Assine para continuar usando o ClinicOS"}
                 </div>
-                <div style={{ color: "rgba(255,255,255,0.8)", fontSize: isMobile ? 11 : 12 }}>
-                  Pacientes ilimitados, equipe e financeiro completo
+                <div style={{ color: "rgba(255,255,255,0.85)", fontSize: isMobile ? 11 : 12 }}>
+                  {bannerState === "expiring"
+                    ? "Assine agora para não perder o acesso"
+                    : bannerState === "trial"
+                    ? "Explore todos os recursos gratuitamente"
+                    : "Pacientes ilimitados, equipe e financeiro completo"}
                 </div>
               </div>
             </div>
@@ -417,17 +447,18 @@ export default function AppLayout({ children }) {
               onClick={() => window.location.href = "/subscription"}
               style={{
                 background: "#fff",
-                color: "#3b82f6",
+                color: bannerState === "expiring" ? "#ef4444" : "#3b82f6",
                 border: "none",
                 borderRadius: 8,
-                padding: isMobile ? "8px 14px" : "10px 18px",
-                fontWeight: 600,
+                padding: isMobile ? "8px 14px" : "9px 18px",
+                fontWeight: 700,
                 fontSize: isMobile ? 12 : 13,
                 cursor: "pointer",
                 whiteSpace: "nowrap",
+                flexShrink: 0,
               }}
             >
-              Ver planos
+              {bannerState === "trial" ? "Ver planos" : "Assinar agora →"}
             </motion.button>
           </motion.div>
         )}
