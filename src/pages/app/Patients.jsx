@@ -127,6 +127,72 @@ function PatientModal({ onClose, onSave, clinicId, specialties, checkPatientLimi
   )
 }
 
+
+function EditPatientModal({ onClose, onSave, patient, specialties }) {
+  const { t } = useTheme()
+  const [name,     setName]     = useState(patient.name ?? "")
+  const [phone,    setPhone]    = useState(patient.phone ?? "")
+  const [email,    setEmail]    = useState(patient.email ?? "")
+  const [specialty,setSpecialty]= useState(patient.specialty ?? "")
+  const [loading,  setLoading]  = useState(false)
+  const [error,    setError]    = useState(null)
+
+  async function handleSave() {
+    if (!name.trim()) { setError("Nome é obrigatório"); return }
+    setError(null); setLoading(true)
+    const { error } = await supabase.from("patients").update({
+      name: name.trim(), phone: phone.trim()||null,
+      email: email.trim()||null, specialty: specialty||null,
+    }).eq("id", patient.id)
+    setLoading(false)
+    if (error) { setError(error.message); return }
+    onSave()
+  }
+
+  return (
+    <MotionModal open={true} onClose={onClose} maxWidth={480}>
+      <div style={{ background:t.bgInset, border:`1px solid ${t.border}`, borderRadius:16, width:"100%", maxWidth:480, display:"flex", flexDirection:"column" }}>
+        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"20px 24px", borderBottom:`1px solid ${t.border}` }}>
+          <h2 style={{ fontSize:16, fontWeight:700, color:t.textPrimary, margin:0 }}>Editar paciente</h2>
+          <button style={{ background:"transparent", border:"none", color:t.textGhost, fontSize:18, cursor:"pointer" }} onClick={onClose}>✕</button>
+        </div>
+        <div style={{ padding:24, display:"flex", flexDirection:"column", gap:16 }}>
+          <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
+            <label style={{ fontSize:12, fontWeight:600, color:t.textFaint }}>Nome *</label>
+            <Input type="text" placeholder="Nome completo" value={name} onChange={e=>setName(e.target.value)} />
+          </div>
+          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 }}>
+            <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
+              <label style={{ fontSize:12, fontWeight:600, color:t.textFaint }}>Telefone</label>
+              <Input type="text" placeholder="(00) 00000-0000" value={phone} onChange={e=>setPhone(e.target.value)} />
+            </div>
+            <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
+              <label style={{ fontSize:12, fontWeight:600, color:t.textFaint }}>E-mail</label>
+              <Input type="email" placeholder="paciente@email.com" value={email} onChange={e=>setEmail(e.target.value)} />
+            </div>
+          </div>
+          {specialties && specialties.length > 0 && (
+            <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
+              <label style={{ fontSize:12, fontWeight:600, color:t.textFaint }}>Especialidade</label>
+              <select value={specialty} onChange={e=>setSpecialty(e.target.value)} style={{ background:t.bgInput, border:`1px solid ${t.border}`, borderRadius:8, padding:"10px 12px", fontSize:14, color:t.textPrimary, outline:"none", width:"100%", boxSizing:"border-box", cursor:"pointer" }}>
+                <option value="">Selecione...</option>
+                {specialties.map(sp=><option key={sp} value={sp}>{sp}</option>)}
+              </select>
+            </div>
+          )}
+          {error && <div style={{ background:t.errorBg, border:`1px solid ${t.errorBorder}`, color:t.errorText, borderRadius:8, padding:"10px 14px", fontSize:13 }}>{error}</div>}
+        </div>
+        <div style={{ display:"flex", justifyContent:"flex-end", gap:10, padding:"16px 24px", borderTop:`1px solid ${t.border}` }}>
+          <Button onClick={onClose} variant="secondary">Cancelar</Button>
+          <Button onClick={handleSave} disabled={loading} loading={loading}>
+            {loading ? "Salvando..." : "Salvar"}
+          </Button>
+        </div>
+      </div>
+    </MotionModal>
+  )
+}
+
 export default function Patients() {
   const { t } = useTheme()
   const { clinicId, clinic } = useAuth()
@@ -146,6 +212,7 @@ export default function Patients() {
   const [searching, setSearching] = useState(false)
   const [filterSpecialty, setFilterSpecialty] = useState("all")
   const [showModal, setShowModal] = useState(false)
+  const [editPatient, setEditPatient] = useState(null)
   const searchTimer = useRef(null)
 
   function showToast(msg, type="success") { setToast({msg,type}); setTimeout(()=>setToast(null),3000) }
@@ -227,6 +294,9 @@ export default function Patients() {
 
       {showModal && (
         <PatientModal onClose={()=>setShowModal(false)} onSave={handleSaved} clinicId={clinicId} specialties={allSpecialties} checkPatientLimit={checkPatientLimit} />
+      )}
+      {editPatient && (
+        <EditPatientModal onClose={()=>setEditPatient(null)} onSave={()=>{ setEditPatient(null); fetchPatients(); showToast("Paciente atualizado!") }} patient={editPatient} specialties={allSpecialties} />
       )}
 
       <div style={{ color:t.textBody, fontFamily:"'DM Sans','Segoe UI',sans-serif" }}>
@@ -326,15 +396,18 @@ export default function Patients() {
                     <td style={{ padding:"14px 12px",fontSize:14,color:t.textGhost }}>{p.email||"—"}</td>
                     <td style={{ padding:"14px 12px",fontSize:14,color:t.textFaint }}>{p.specialty||"—"}</td>
                     <td style={{ padding:"14px 12px",textAlign:"right" }}>
-                      {deleteConfirm===p.id ? (
-                        <span style={{ display:"flex",alignItems:"center",gap:8,justifyContent:"flex-end" }}>
-                          <span style={{ fontSize:12,color:t.errorText }}>Confirmar?</span>
-                          <button onClick={()=>deletePatient(p.id)} style={{ background:t.errorBg,border:"none",color:t.errorText,borderRadius:6,padding:"5px 12px",fontSize:12,fontWeight:700,cursor:"pointer" }}>Sim</button>
-                          <button onClick={()=>setDeleteConfirm(null)} style={{ background:t.bgCard,border:`1px solid ${t.border}`,color:t.textMuted,borderRadius:6,padding:"5px 12px",fontSize:12,cursor:"pointer" }}>Não</button>
-                        </span>
-                      ) : permissions.canDeletePatients ? (
-                        <button onClick={()=>setDeleteConfirm(p.id)} style={{ background:"transparent",border:`1px solid ${t.borderStrong}`,color:t.textFaint,borderRadius:6,padding:"5px 14px",fontSize:12,cursor:"pointer" }}>Excluir</button>
-                      ) : <span style={{ fontSize:12,color:t.textDisabled }}>—</span>}
+                      <div style={{ display:"flex", gap:6, justifyContent:"flex-end", alignItems:"center" }}>
+                        <button onClick={()=>setEditPatient(p)} style={{ background:"transparent", border:`1px solid ${t.border}`, color:t.textGhost, borderRadius:6, padding:"5px 10px", fontSize:12, cursor:"pointer" }}>Editar</button>
+                        {deleteConfirm===p.id ? (
+                          <span style={{ display:"flex",alignItems:"center",gap:6 }}>
+                            <span style={{ fontSize:12,color:t.errorText }}>Confirmar?</span>
+                            <button onClick={()=>deletePatient(p.id)} style={{ background:t.errorBg,border:"none",color:t.errorText,borderRadius:6,padding:"5px 12px",fontSize:12,fontWeight:700,cursor:"pointer" }}>Sim</button>
+                            <button onClick={()=>setDeleteConfirm(null)} style={{ background:t.bgCard,border:`1px solid ${t.border}`,color:t.textMuted,borderRadius:6,padding:"5px 12px",fontSize:12,cursor:"pointer" }}>Não</button>
+                          </span>
+                        ) : permissions.canDeletePatients ? (
+                          <button onClick={()=>setDeleteConfirm(p.id)} style={{ background:"transparent",border:`1px solid ${t.borderStrong}`,color:t.errorText,borderRadius:6,padding:"5px 10px",fontSize:12,cursor:"pointer" }}>Excluir</button>
+                        ) : null}
+                      </div>
                     </td>
                   </tr>
                 ))}

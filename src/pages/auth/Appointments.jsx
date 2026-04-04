@@ -222,6 +222,81 @@ function AppointmentModal({ onClose, onSave, staffList, clinicId, specialties })
   )
 }
 
+
+function EditAppointmentModal({ onClose, onSave, appt, staffList, clinicId, specialties, patientMap }) {
+  const { t } = useTheme()
+  const patientName = patientMap[appt.client_id]?.name ?? ""
+  const [datetime,  setDatetime]  = useState(appt.datetime ? new Date(appt.datetime).toISOString().slice(0,16) : "")
+  const [staffId,   setStaffId]   = useState(appt.staff_id ?? "")
+  const [status,    setStatus]    = useState(appt.status ?? "scheduled")
+  const [specialty, setSpecialty] = useState(appt.specialty ?? "")
+  const [loading,   setLoading]   = useState(false)
+  const [error,     setError]     = useState(null)
+
+  async function handleSave() {
+    if (!datetime) { setError("Informe a data e hora"); return }
+    setError(null); setLoading(true)
+    const { error } = await supabase.from("appointments").update({
+      datetime, staff_id: staffId||null, status,
+      specialty: specialty||null, updated_at: new Date().toISOString(),
+    }).eq("id", appt.id)
+    setLoading(false)
+    if (error) { setError(error.message); return }
+    onSave()
+  }
+
+  return (
+    <MotionModal open={true} onClose={onClose} maxWidth={480}>
+      <div style={{ background:t.bgInset, border:`1px solid ${t.border}`, borderRadius:16, width:"100%", maxWidth:480, display:"flex", flexDirection:"column" }}>
+        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"20px 24px", borderBottom:`1px solid ${t.border}` }}>
+          <h2 style={{ fontSize:16, fontWeight:700, color:t.textPrimary, margin:0 }}>Editar agendamento</h2>
+          <button style={{ background:"transparent", border:"none", color:t.textGhost, fontSize:18, cursor:"pointer" }} onClick={onClose}>✕</button>
+        </div>
+        <div style={{ padding:24, display:"flex", flexDirection:"column", gap:16 }}>
+          <div style={{ background:t.bgInset, borderRadius:8, padding:"10px 14px", fontSize:13, color:t.textBody }}>
+            Paciente: <strong>{patientName}</strong>
+          </div>
+          <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
+            <label style={{ fontSize:12, fontWeight:600, color:t.textFaint }}>Data e hora *</label>
+            <Input type="datetime-local" value={datetime} onChange={e=>setDatetime(e.target.value)} />
+          </div>
+          {staffList.length > 0 && (
+            <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
+              <label style={{ fontSize:12, fontWeight:600, color:t.textFaint }}>Profissional</label>
+              <select value={staffId} onChange={e=>setStaffId(e.target.value)} style={{ background:t.bgInput, border:`1px solid ${t.border}`, borderRadius:8, padding:"10px 12px", fontSize:14, color:t.textPrimary, outline:"none", width:"100%", boxSizing:"border-box", cursor:"pointer" }}>
+                <option value="">Sem profissional definido</option>
+                {staffList.map(st=><option key={st.id} value={st.id}>{st.name}</option>)}
+              </select>
+            </div>
+          )}
+          {specialties && specialties.length > 0 && (
+            <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
+              <label style={{ fontSize:12, fontWeight:600, color:t.textFaint }}>Especialidade</label>
+              <select value={specialty} onChange={e=>setSpecialty(e.target.value)} style={{ background:t.bgInput, border:`1px solid ${t.border}`, borderRadius:8, padding:"10px 12px", fontSize:14, color:t.textPrimary, outline:"none", width:"100%", boxSizing:"border-box", cursor:"pointer" }}>
+                <option value="">Selecione...</option>
+                {specialties.map(sp=><option key={sp} value={sp}>{sp}</option>)}
+              </select>
+            </div>
+          )}
+          <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
+            <label style={{ fontSize:12, fontWeight:600, color:t.textFaint }}>Status</label>
+            <select value={status} onChange={e=>setStatus(e.target.value)} style={{ background:t.bgInput, border:`1px solid ${t.border}`, borderRadius:8, padding:"10px 12px", fontSize:14, color:t.textPrimary, outline:"none", width:"100%", boxSizing:"border-box", cursor:"pointer" }}>
+              {Object.entries(STATUS_CONFIG).map(([k,cfg])=><option key={k} value={k}>{cfg.label}</option>)}
+            </select>
+          </div>
+          {error && <div style={{ background:t.errorBg, border:`1px solid ${t.errorBorder}`, color:t.errorText, borderRadius:8, padding:"10px 14px", fontSize:13 }}>{error}</div>}
+        </div>
+        <div style={{ display:"flex", justifyContent:"flex-end", gap:10, padding:"16px 24px", borderTop:`1px solid ${t.border}` }}>
+          <Button onClick={onClose} variant="secondary">Cancelar</Button>
+          <Button onClick={handleSave} disabled={loading} loading={loading}>
+            {loading ? "Salvando..." : "Salvar"}
+          </Button>
+        </div>
+      </div>
+    </MotionModal>
+  )
+}
+
 // ─── CalendarView ─────────────────────────────────────────────────────────────
 // Chama useTheme() diretamente — sem depender de props s/t
 
@@ -293,6 +368,7 @@ export default function Appointments() {
   const [toast,          setToast]          = useState(null)
   const [selectedDay,    setSelectedDay]    = useState(null)
   const [changingStatus, setChangingStatus] = useState(null)
+  const [editAppt,       setEditAppt]       = useState(null)
   const [query,          setQuery]          = useState("")
   const [searching,      setSearching]      = useState(false)
   const [remoteAppts,    setRemoteAppts]    = useState(null)
@@ -441,6 +517,9 @@ export default function Appointments() {
 
       {showModal && (
         <AppointmentModal onClose={()=>setShowModal(false)} onSave={handleSaved} staffList={staffList} clinicId={clinicId} specialties={clinic?.specialties} />
+      )}
+      {editAppt && (
+        <EditAppointmentModal onClose={()=>setEditAppt(null)} onSave={()=>{ setEditAppt(null); fetchAll(); showToast("Agendamento atualizado!") }} appt={editAppt} staffList={staffList} clinicId={clinicId} specialties={clinic?.specialties} patientMap={patientMap} />
       )}
 
       <MotionModal open={!!selectedDay} onClose={()=>setSelectedDay(null)} maxWidth={480}>
@@ -623,7 +702,10 @@ export default function Appointments() {
                           </select>
                         </td>
                         <td style={{ ...s.td, textAlign:"right" }}>
-                          <Button onClick={()=>handleDelete(a.id)} size="sm" variant="ghost">Remover</Button>
+                          <div style={{ display:"flex", gap:6, justifyContent:"flex-end" }}>
+                            <Button onClick={()=>setEditAppt(a)} size="sm" variant="secondary">Editar</Button>
+                            <Button onClick={()=>handleDelete(a.id)} size="sm" variant="ghost">Remover</Button>
+                          </div>
                         </td>
                       </tr>
                     ))}
