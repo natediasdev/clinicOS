@@ -235,6 +235,93 @@ function NextAppointmentsList({ items, t }) {
   )
 }
 
+
+// ─── Ocupação semanal baseada em horário de funcionamento ─────────────────────
+function WeeklyOccupancyCard({ t, clinicId }) {
+  const [data, setData] = useState({ pct: null, scheduled: 0, totalSlots: 0, loading: true })
+
+  useEffect(() => {
+    if (!clinicId) return
+    async function calc() {
+      // Busca horários de funcionamento da clínica (tabela availability)
+      const { data: avail } = await supabase
+        .from("availability")
+        .select("weekday, start_time, end_time")
+        .eq("clinic_id", clinicId)
+        .is("deleted_at", null)
+
+      // Busca agendamentos desta semana (exceto cancelados)
+      const now = new Date()
+      const dow = now.getDay()
+      const monday = new Date(now); monday.setDate(now.getDate() - (dow === 0 ? 6 : dow - 1)); monday.setHours(0,0,0,0)
+      const sunday = new Date(monday); sunday.setDate(monday.getDate() + 6); sunday.setHours(23,59,59,999)
+
+      const { data: appts } = await supabase
+        .from("appointments")
+        .select("datetime, status")
+        .eq("clinic_id", clinicId)
+        .gte("datetime", monday.toISOString())
+        .lte("datetime", sunday.toISOString())
+        .neq("status", "cancelled")
+        .is("deleted_at", null)
+
+      const scheduled = (appts ?? []).length
+
+      // Calcula slots disponíveis usando horários cadastrados
+      // Assume slots de 1h por padrão
+      let totalSlots = 0
+      if (avail && avail.length > 0) {
+        avail.forEach(a => {
+          const [sh, sm] = a.start_time.split(":").map(Number)
+          const [eh, em] = a.end_time.split(":").map(Number)
+          const minutes = (eh * 60 + em) - (sh * 60 + sm)
+          totalSlots += Math.floor(minutes / 60)  // slots de 1h
+        })
+      } else {
+        // Fallback: assume 7h por dia, seg-sex = 35 slots/semana
+        totalSlots = 35
+      }
+
+      const pct = totalSlots > 0 ? Math.min(Math.round((scheduled / totalSlots) * 100), 100) : 0
+      setData({ pct, scheduled, totalSlots, loading: false })
+    }
+    calc()
+  }, [clinicId])
+
+  const pct = data.pct ?? 0
+  const barColor = pct >= 85 ? "#ef4444" : pct >= 60 ? "#f59e0b" : "#22c55e"
+  const msg = pct >= 85 ? "🔥 Agenda quase cheia" : pct >= 60 ? "📊 Ocupação moderada" : "📭 Agenda com espaço"
+
+  return (
+    <SectionCard t={t} title="Ocupação semanal">
+      {data.loading ? (
+        <div className="skeleton-shimmer" style={{ height: 80 }} />
+      ) : (
+        <>
+          <div style={{ display:"flex", justifyContent:"space-between", alignItems:"baseline", marginBottom:14 }}>
+            <span style={{ fontSize:13, color:t.textGhost }}>Esta semana</span>
+            <span style={{ fontSize:32, fontWeight:800, color:t.textPrimary, letterSpacing:"-1px" }}>{pct}%</span>
+          </div>
+          <div style={{ height:10, background:t.bgInset, borderRadius:99, overflow:"hidden", marginBottom:10 }}>
+            <div style={{ height:"100%", borderRadius:99, transition:"width .6s ease",
+              width:`${pct}%`, background:barColor }}/>
+          </div>
+          <div style={{ display:"flex", justifyContent:"space-between", marginBottom:12 }}>
+            <span style={{ fontSize:11, color:t.textGhost }}>{data.scheduled} agendado{data.scheduled !== 1 ? "s" : ""}</span>
+            <span style={{ fontSize:11, color:t.textGhost }}>{data.totalSlots} slots disponíveis</span>
+          </div>
+          <p style={{ fontSize:12, color:t.textGhost, margin:0 }}>{msg}</p>
+          {(!data.totalSlots || data.totalSlots === 35) && (
+            <p style={{ fontSize:11, color:t.textDisabled, margin:"6px 0 0" }}>
+              ⚙️ Configure os <a href="/team" style={{ color:t.accent, textDecoration:"none" }}>horários da equipe</a> para cálculo preciso
+            </p>
+          )}
+        </>
+      )}
+    </SectionCard>
+  )
+}
+
 // ─── Dashboard ────────────────────────────────────────────────────────────────
 
 export default function Dashboard() {
@@ -381,24 +468,8 @@ export default function Dashboard() {
             ? <Skeleton h={180} t={t}/>
             : <SectionCard t={t} title="Próximos atendimentos"><NextAppointmentsList t={t} items={d.nextAppointments}/></SectionCard>}
 
-          {/* Barra de ocupação semanal */}
-          {!d.loading && (
-            <SectionCard t={t} title="Ocupação semanal">
-              <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:16 }}>
-                <span style={{ fontSize:13, color:t.textGhost }}>Esta semana</span>
-                <span style={{ fontSize:32, fontWeight:800, color:t.textPrimary }}>{d.weekOccupancy??0}%</span>
-              </div>
-              <div style={{ height:10, background:t.bgInset, borderRadius:99, overflow:"hidden", marginBottom:12 }}>
-                <div style={{ height:"100%", borderRadius:99, transition:"width .6s ease",
-                  width:`${d.weekOccupancy??0}%`,
-                  background:(d.weekOccupancy??0)>=80?STATUS_COLORS.completed.color:(d.weekOccupancy??0)>=50?STATUS_COLORS.no_show.color:t.textGhost
-                }}/>
-              </div>
-              <p style={{ fontSize:12, color:t.textGhost, margin:0 }}>
-                {(d.weekOccupancy??0)>=80?"🔥 Agenda bem ocupada":(d.weekOccupancy??0)>=50?"📊 Ocupação moderada":"📭 Agenda com espaço"}
-              </p>
-            </SectionCard>
-          )}
+          {/* Ocupação semanal — baseada em horários de funcionamento da tabela availability */}
+          {!d.loading && <WeeklyOccupancyCard t={t} clinicId={clinicId} />}
         </div>
       </div>
     </AppLayout>
