@@ -11,6 +11,7 @@ import Team           from "./pages/app/Team"
 import PrivacyPolicy  from "./pages/public/PrivacyPolicy"
 import TermsOfUse     from "./pages/public/TermsOfUse"
 import Onboarding     from "./pages/onboarding/Onboarding"
+import Groups         from "./pages/app/Groups"
 import Login          from "./pages/auth/Login"
 import Register       from "./pages/auth/Register"
 import ForgotPassword from "./pages/auth/ForgotPassword"
@@ -81,6 +82,7 @@ function AnimatedRoutes() {
         <Route path="/onboarding"     element={<OnboardingRoute />} />
         <Route path="/dashboard"      element={<PrivateRoute><Dashboard /></PrivateRoute>} />
         <Route path="/patients"       element={<PrivateRoute><Patients /></PrivateRoute>} />
+        <Route path="/groups"         element={<PrivateRoute><Groups /></PrivateRoute>} />
         <Route path="/patients/:id"   element={<PrivateRoute><PatientRecord /></PrivateRoute>} />
         <Route path="/appointments"   element={<PrivateRoute><Appointments /></PrivateRoute>} />
         <Route path="/financeiro"     element={<PrivateRoute><Financial /></PrivateRoute>} />

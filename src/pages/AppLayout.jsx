@@ -30,6 +30,21 @@ const NavIcons = {
       <line x1="8" y1="14" x2="8" y2="14"/><line x1="12" y1="14" x2="12" y2="14"/><line x1="16" y1="14" x2="16" y2="14"/>
     </svg>
   ),
+  groups:      (c) => (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      {/* Pessoa Central */}
+      <circle cx="12" cy="7" r="4" />
+      <path d="M17 21v-2a4 4 0 0 0-4-4H11a4 4 0 0 0-4 4v2" />
+      
+      {/* Pessoa Lateral (Grupo) */}
+      <path d="M17 11a3 3 0 1 0-3-3" />
+      <path d="M21 21v-2a4 4 0 0 0-3-3.87" />
+      
+      {/* Outra Pessoa Lateral (Grupo) */}
+      <path d="M7 11a3 3 0 1 1 3-3" />
+      <path d="M3 21v-2a4 4 0 0 1 3-3.87" />
+    </svg>
+  ),
   financeiro:   (c) => (
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
       <line x1="12" y1="1" x2="12" y2="23"/>
@@ -69,6 +84,7 @@ const ALL_NAV_ITEMS = [
   { path: "/dashboard",    label: "Dashboard",     icon: NavIcons.dashboard,    permission: "canViewDashboard" },
   { path: "/patients",     label: "Pacientes",     icon: NavIcons.patients,     permission: "canViewPatients" },
   { path: "/appointments", label: "Agendamentos",  icon: NavIcons.appointments, permission: "canViewAppointments" },
+  { path: "/groups",       label: "Turmas",        icon: NavIcons.groups,         permission: "canViewTeam" },
   { path: "/financeiro",   label: "Financeiro",    icon: NavIcons.financeiro,   permission: "canViewFinancial" },
   { path: "/profile",      label: "Minha Clínica", icon: NavIcons.profile,      permission: "canViewClinicProfile" },
   { path: "/team",         label: "Equipe",        icon: NavIcons.team,         permission: "canViewTeam" },
