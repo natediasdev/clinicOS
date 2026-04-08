@@ -4,10 +4,11 @@ import LandingPage    from "./pages/public/LandingPage"
 import Dashboard      from "./pages/app/Dashboard"
 import Patients       from "./pages/app/Patients"
 import PatientRecord  from "./pages/app/PatientRecord"
-import Appointments   from "./pages/auth/Appointments"
+import Appointments   from "./pages/app/Appointments"   // ← corrigido: app/, não auth/
 import ClinicProfile  from "./pages/app/ClinicProfile"
 import Financial      from "./pages/app/Financial"
 import Team           from "./pages/app/Team"
+import ServiceTypes   from "./pages/app/ProductTypes"   // ← NOVO
 import PrivacyPolicy  from "./pages/public/PrivacyPolicy"
 import TermsOfUse     from "./pages/public/TermsOfUse"
 import Onboarding     from "./pages/onboarding/Onboarding"
@@ -46,7 +47,7 @@ function OnboardingRoute() {
 
 function SubscriptionRoute() {
   const { user, loading, clinic, subscriptionActive } = useAuth()
-  
+
   if (loading) {
     return <LoadingScreen message="Carregando..." />
   }
@@ -54,15 +55,15 @@ function SubscriptionRoute() {
   if (!user) {
     return <LoadingScreen message="Verificando sessão..." />
   }
-  
+
   if (clinic?.plan && clinic.plan !== "pro" && clinic.plan !== "free") {
     return <Navigate to="/dashboard" replace />
   }
-  
+
   if (clinic?.plan === "pro" && !subscriptionActive) {
     return <SubscriptionBlocked />
   }
-  
+
   return <Subscription />
 }
 
@@ -72,24 +73,36 @@ function AnimatedRoutes() {
   return (
     <AnimatePresence mode="wait" initial={false}>
       <Routes location={location} key={location.pathname}>
+        {/* ── Públicas ── */}
         <Route path="/"               element={<LandingPage />} />
         <Route path="/privacy"        element={<PrivacyPolicy />} />
         <Route path="/terms"          element={<TermsOfUse />} />
         <Route path="/reset-password" element={<ResetPassword />} />
-        <Route path="/login"          element={<PublicRoute><Login /></PublicRoute>} />
-        <Route path="/register"       element={<PublicRoute><Register /></PublicRoute>} />
+
+        {/* ── Auth (só sem sessão) ── */}
+        <Route path="/login"           element={<PublicRoute><Login /></PublicRoute>} />
+        <Route path="/register"        element={<PublicRoute><Register /></PublicRoute>} />
         <Route path="/forgot-password" element={<PublicRoute><ForgotPassword /></PublicRoute>} />
-        <Route path="/onboarding"     element={<OnboardingRoute />} />
+
+        {/* ── Onboarding ── */}
+        <Route path="/onboarding" element={<OnboardingRoute />} />
+
+        {/* ── App (autenticadas) ── */}
         <Route path="/dashboard"      element={<PrivateRoute><Dashboard /></PrivateRoute>} />
         <Route path="/patients"       element={<PrivateRoute><Patients /></PrivateRoute>} />
-        <Route path="/groups"         element={<PrivateRoute><Groups /></PrivateRoute>} />
         <Route path="/patients/:id"   element={<PrivateRoute><PatientRecord /></PrivateRoute>} />
+        <Route path="/groups"         element={<PrivateRoute><Groups /></PrivateRoute>} />
         <Route path="/appointments"   element={<PrivateRoute><Appointments /></PrivateRoute>} />
         <Route path="/financeiro"     element={<PrivateRoute><Financial /></PrivateRoute>} />
         <Route path="/profile"        element={<PrivateRoute><ClinicProfile /></PrivateRoute>} />
         <Route path="/team"           element={<PrivateRoute><Team /></PrivateRoute>} />
-        <Route path="/subscription"   element={<SubscriptionRoute />} />
-        <Route path="*"               element={<Navigate to="/" replace />} />
+        <Route path="/services"       element={<PrivateRoute><ServiceTypes /></PrivateRoute>} />
+
+        {/* ── Assinatura ── */}
+        <Route path="/subscription" element={<SubscriptionRoute />} />
+
+        {/* ── Fallback ── */}
+        <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </AnimatePresence>
   )

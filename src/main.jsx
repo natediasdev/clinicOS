@@ -4,10 +4,13 @@ import App from './App'
 import { AuthProvider } from './context/AuthContext'
 import { ThemeProvider } from './context/ThemeContext'
 
-// ─── Loading screen DOM ───────────────────────────────────────────────────────
+// ─── Loading screen + Scrollbar global ───────────────────────────────────────
 // Injetada diretamente no DOM antes do React montar.
 // Cobre o flash de tela preta enquanto o bundle carrega.
 // Removida com fade out suave no primeiro requestAnimationFrame após mount.
+//
+// O scrollbar customizado é injetado aqui junto para garantir que
+// esteja disponível desde o primeiro paint, antes do React hidratar.
 
 const CSS = `
   @keyframes _co_ring{to{transform:rotate(360deg)}}
@@ -34,6 +37,40 @@ const CSS = `
   .co-bf{height:100%;background:linear-gradient(90deg,#1d4ed8,#3b82f6,#60a5fa);border-radius:99px;animation:_co_bar 2s ease-out forwards}
   .co-ds{display:flex;gap:6px;animation:_co_in .5s ease .4s both}
   .co-d{width:6px;height:6px;background:#3b82f6;border-radius:50%;animation:_co_dot 1.4s ease-in-out infinite}
+
+  /* ─── Scrollbar customizada — tema escuro do ClinicOS ─────────────────────
+     Largura ligeiramente maior (8px) para melhor usabilidade.
+     Usa as mesmas cores do tema dark para consistência visual.
+     Firefox usa scrollbar-width/color (valores aproximados).
+  ──────────────────────────────────────────────────────────────────────────── */
+
+  /* Webkit (Chrome, Edge, Safari, Opera) */
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  ::-webkit-scrollbar-track {
+    background: #0d1829;           /* próximo de t.bgPage dark */
+    border-radius: 99px;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: #1e3a5f;           /* azul-acinzentado sutil */
+    border-radius: 99px;
+    border: 2px solid #0d1829;     /* cria espaçamento visual com o track */
+    transition: background .2s;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: #2d5a9e;           /* t.accent mais claro no hover */
+  }
+  ::-webkit-scrollbar-corner {
+    background: #0d1829;
+  }
+
+  /* Firefox */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: #1e3a5f #0d1829;
+  }
 `
 
 function mountSplash() {
