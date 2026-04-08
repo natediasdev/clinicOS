@@ -8,19 +8,20 @@
  *   staffMap        — { [staff_id]: { name } }
  *   onStatusChange(id, newStatus)
  *   onDelete(id)
+ *   onEdit(appt)
  *   selectedDate    — Date object
  *   onDateChange(Date)
  *   isMobile
  *   isAdmin         — booleano: admin vê staff atribuído em destaque
  */
 
-import { useState } from "react"
+import { useState, useMemo } from "react"
 import { useTheme } from "../context/ThemeContext"
 import { getStatusConfig } from "../config/statusColors"
 
-const HOUR_START = 7
-const HOUR_END   = 20
-const HOURS      = Array.from({ length: HOUR_END - HOUR_START }, (_, i) => HOUR_START + i)
+// ─── Constantes base — expandidas dinamicamente ───────────────────────────────
+const DEFAULT_HOUR_START = 7
+const DEFAULT_HOUR_END   = 20 // exclusive, ou seja exibe até 19:xx
 
 const DAYS_PT   = ["Dom","Seg","Ter","Qua","Qui","Sex","Sáb"]
 const MONTHS_PT = ["Janeiro","Fevereiro","Março","Abril","Maio","Junho",
@@ -60,8 +61,8 @@ function isSameDay(a, b) {
 
 // ─── WeekStrip ────────────────────────────────────────────────────────────────
 function WeekStrip({ selectedDate, onDateChange, appointments, t }) {
-  const today = new Date()
-  const dow   = selectedDate.getDay()
+  const today  = new Date()
+  const dow    = selectedDate.getDay()
   const monday = new Date(selectedDate)
   monday.setDate(selectedDate.getDate() - (dow === 0 ? 6 : dow - 1))
 
@@ -209,12 +210,11 @@ function AppointmentBlock({ appt, patientMap, staffMap, onStatusChange, onDelete
 
           {/* Botão editar */}
           <button
-            onClick={e => { e.stopPropagation(); onEdit && onEdit(appt) }}
-            title="Editar agendamento"
+            onClick={e => { e.stopPropagation(); onEdit?.(appt) }}
             style={{
               background:"transparent", border:`1px solid ${t.border}`,
               color: t.textFaint, borderRadius:6,
-              width:24, height:24, fontSize:11,
+              width:24, height:24, fontSize:12,
               cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center",
               flexShrink:0,
             }}
@@ -224,6 +224,7 @@ function AppointmentBlock({ appt, patientMap, staffMap, onStatusChange, onDelete
               <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
             </svg>
           </button>
+
           {/* Botão excluir */}
           <button
             onClick={e => { e.stopPropagation(); onDelete(appt.id) }}
@@ -285,7 +286,7 @@ export default function DayView({
   isMobile,
   isAdmin = true,
 }) {
-  const { t } = useTheme()
+  const { t }  = useTheme()
   const today  = new Date()
 
   // Estado local de "mudando status" para feedback visual nas pills
@@ -301,12 +302,36 @@ export default function DayView({
     .filter(a => isSameDay(new Date(a.datetime), selectedDate))
     .sort((a, b) => new Date(a.datetime) - new Date(b.datetime))
 
+  // ── Calcula intervalo de horas dinamicamente ──────────────────────────────
+  // Sempre parte do DEFAULT_HOUR_START (7h) e expande conforme agendamentos.
+  // Se houver agendamento fora do range padrão, inclui 1h de padding antes/depois.
+  const { hourStart, hourEnd, hours } = useMemo(() => {
+    if (dayAppts.length === 0) {
+      const s = DEFAULT_HOUR_START
+      const e = DEFAULT_HOUR_END
+      return { hourStart: s, hourEnd: e, hours: Array.from({ length: e - s }, (_, i) => s + i) }
+    }
+
+    const apptHours = dayAppts.map(a => new Date(a.datetime).getHours())
+    const minHour   = Math.min(...apptHours)
+    const maxHour   = Math.max(...apptHours)
+
+    // Padding de 1h antes e depois dos agendamentos, dentro dos limites sãos (0–23)
+    const s = Math.max(0,  Math.min(minHour - 1, DEFAULT_HOUR_START))
+    const e = Math.min(24, Math.max(maxHour + 2, DEFAULT_HOUR_END))  // +2 para exibir a hora cheia após o último
+
+    return { hourStart: s, hourEnd: e, hours: Array.from({ length: e - s }, (_, i) => s + i) }
+  }, [dayAppts])
+
   const counts = dayAppts.reduce((acc, a) => {
     acc[a.status] = (acc[a.status] || 0) + 1
     return acc
   }, {})
 
   const isToday = isSameDay(selectedDate, today)
+
+  // Badge de expansão — só mostra se o range foi expandido além do padrão
+  const isExpanded = hourStart < DEFAULT_HOUR_START || hourEnd > DEFAULT_HOUR_END
 
   return (
     <div style={{ fontFamily:"'DM Sans','Segoe UI',sans-serif" }}>
@@ -315,10 +340,21 @@ export default function DayView({
       <div style={{ background:t.bgCard, borderRadius:12, padding:"16px 20px", marginBottom:12 }}>
         <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:12, gap:12, flexWrap:"wrap" }}>
           <div>
-            <h2 style={{ fontSize:16, fontWeight:800, color:t.textPrimary, margin:0 }}>
-              {isToday ? "Hoje" : DAYS_PT[selectedDate.getDay()]}{", "}
-              {selectedDate.getDate()} de {MONTHS_PT[selectedDate.getMonth()]}
-            </h2>
+            <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+              <h2 style={{ fontSize:16, fontWeight:800, color:t.textPrimary, margin:0 }}>
+                {isToday ? "Hoje" : DAYS_PT[selectedDate.getDay()]}{", "}
+                {selectedDate.getDate()} de {MONTHS_PT[selectedDate.getMonth()]}
+              </h2>
+              {/* Badge sutil indicando range expandido */}
+              {isExpanded && (
+                <span style={{
+                  fontSize:10, fontWeight:700, padding:"2px 8px", borderRadius:99,
+                  background:`${t.accent}18`, color:t.accent, border:`1px solid ${t.accent}33`,
+                }}>
+                  {formatHour(hourStart)}–{formatHour(hourEnd - 1)}
+                </span>
+              )}
+            </div>
             <p style={{ fontSize:12, color:t.textFaint, margin:"2px 0 0" }}>
               {dayAppts.length === 0
                 ? "Nenhum agendamento"
@@ -363,7 +399,7 @@ export default function DayView({
           </div>
         )}
 
-        {HOURS.map(hour => {
+        {hours.map(hour => {
           const apptAtHour = dayAppts.filter(a => new Date(a.datetime).getHours() === hour)
           const hasAppt    = apptAtHour.length > 0
           const isPast     = isToday && hour < new Date().getHours()
