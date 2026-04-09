@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 80" fill="none">
+  <!-- C shape -->
+  <path d="M 54.58 27.56 A 20.62 20.62 0 1 0 54.58 52.44 L 54.58 47.47 A 15.64 15.64 0 1 1 54.58 32.53 Z" fill="white"/>
+  <!-- Pulso ECG -->
+  <polyline points="54.58,40.0 58.49,40.0 60.62,33.6 63.47,47.11 65.96,33.6 68.8,46.4 70.58,40.0 77.69,40.0"
+    fill="none" stroke="white" stroke-width="1.24" stroke-linecap="round" stroke-linejoin="round" opacity="0.9"/>
+</svg>
