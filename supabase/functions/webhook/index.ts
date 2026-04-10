@@ -52,7 +52,7 @@ function validateSignature(request: Request): boolean {
     return false
   }
 
-  // Validar timestamp (não deve ser muito antigo)
+    // Validar timestamp (não deve ser muito antigo)
   const timestamp = parseInt(ts)
   const now = Math.floor(Date.now() / 1000)
   const diff = now - timestamp
@@ -132,7 +132,7 @@ async function updateSubscriptionStatus(
   }
 
   // Se cancelada/parada, downgrade para free
-  if (newStatus === "cancelled" || newStatus === "paused") {
+  if (newStatus === "cancelled" || newStatus === "paused" || newStatus === "payment_failed") {
     const { error: clinicError } = await supabase
       .from("clinics")
       .update({ plan: "free" })
@@ -156,26 +156,23 @@ Deno.serve(async (req: Request) => {
     return json({ error: "Method not allowed" }, 405)
   }
 
-  try {
-    // Validar signature
-    if (!validateSignature(req)) {
-      console.warn("Invalid webhook signature from request")
-      return json({ error: "Invalid signature" }, 401)
-    }
+  if (!validateSignature(req)) {
+    console.warn("Invalid webhook signature")
+    return json({ error: "Invalid signature" }, 401)
+  }
 
+  try {
     const body = await req.json()
     const { type, action, data } = body
 
     console.log("Webhook received - type:", type, "action:", action, "data.id:", data?.id)
 
-    // PREAPPROVAL (Subscription/recurring payment)
     if (type === "preapproval") {
       const mpPreapprovalId = data?.id
       if (!mpPreapprovalId) {
         return json({ error: "Missing preapproval ID" }, 400)
       }
 
-      // Buscar subscription no banco
       const { data: subscription, error: subError } = await supabase
         .from("subscriptions")
         .select("id, clinic_id, status")
@@ -215,7 +212,16 @@ Deno.serve(async (req: Request) => {
           console.log("Preapproval resumed:", mpPreapprovalId)
           break
 
-        default:
+        case "preapproval.updated":
+          const mpData = await fetchSubscriptionFromMP(mpPreapprovalId)
+          if (mpData) {
+            if (mpData.status === "active") {
+              newStatus = "active"
+            } else if (mpData.status === "cancelled") {
+              newStatus = "cancelled"
+            }
+          }
+          break
           console.log("Unhandled preapproval action:", action)
           return json({ success: true, action: "ignored" })
       }
@@ -225,7 +231,7 @@ Deno.serve(async (req: Request) => {
       return json({ success: true, status: newStatus })
     }
 
-    // PAYMENT (Authorized payment from preapproval)
+        // PAYMENT (Authorized payment from preapproval)
     if (type === "payment") {
       const paymentId = data?.id
       if (!paymentId) {
@@ -241,7 +247,7 @@ Deno.serve(async (req: Request) => {
 
       if (!payment) {
         console.error("Failed to fetch payment:", paymentId)
-        return json({ success: true }) // Reschedule retry
+        return json({ success: true })
       }
 
       // Se tem preapproval_id vinculado

@@ -28,7 +28,17 @@ Deno.serve(async (req: Request) => {
 
   try {
     const url = new URL(req.url)
-    const clinicId = url.searchParams.get("clinic_id")
+    let clinicId = url.searchParams.get("clinic_id")
+
+    // Se não veio na query string, tenta ler do body (POST)
+    if (!clinicId && req.method === "POST") {
+      try {
+        const body = await req.json()
+        clinicId = body?.clinic_id
+      } catch {
+        // ignore JSON parse errors
+      }
+    }
 
     if (!clinicId) {
       return json({ error: "clinic_id is required" }, 400)
