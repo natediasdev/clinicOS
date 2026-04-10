@@ -47,7 +47,7 @@ export const PLAN_CONFIG = {
   pro: {
     label:         "Pro",
     color:         "#3b82f6",
-    patient_limit: null,
+    patient_limit: null, // null significa ilimitado
     staff_limit:   999,
     features: {
       hasTeam:          true,
