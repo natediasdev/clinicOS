@@ -208,7 +208,7 @@ function ServiceModal({ service, onClose, onSave, clinicId, specialties }) {
           {/* Ativo */}
           <div style={{ display:"flex", alignItems:"center", gap:10 }}>
             <button onClick={() => setActive(v => !v)} style={{
-              width:36, height:20, borderRadius:99, border:"none", cursor:"pointer",
+              width:36, height:20, borderRadius:99, cursor:"pointer",
               background: active ? t.accent : t.bgCard,
               border: `1px solid ${active ? t.accent : t.border}`,
               position:"relative", transition:"background .2s",
