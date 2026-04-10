@@ -27,6 +27,9 @@ export const DARK = {
   infoText:      "#93c5fd",
   shimmer1:      "#1e293b",
   shimmer2:      "#2d3f55",
+  scrollbarTrack: "#0d1829",
+  scrollbarThumb: "#1e3a5f",
+  scrollbarThumbHover: "#2d5a9e",
 }
 
 export const LIGHT = {
@@ -56,6 +59,9 @@ export const LIGHT = {
   infoText:      "#1d4ed8",
   shimmer1:      "#e2e8f0",
   shimmer2:      "#f8fafc",
+  scrollbarTrack: "#f1f5f9",
+  scrollbarThumb: "#cbd5e1",
+  scrollbarThumbHover: "#94a3b8",
 }
 
 const ThemeContext = createContext()
@@ -66,12 +72,13 @@ export function ThemeProvider({ children }) {
 
   useEffect(() => {
     localStorage.setItem("clinicos-theme", mode)
+    
     // Atualiza shimmer CSS dinamicamente
-    const existing = document.getElementById("shimmer-style")
-    if (existing) existing.remove()
-    const tag = document.createElement("style")
-    tag.id = "shimmer-style"
-    tag.textContent = `
+    const existingShimmer = document.getElementById("shimmer-style")
+    if (existingShimmer) existingShimmer.remove()
+    const shimmerTag = document.createElement("style")
+    shimmerTag.id = "shimmer-style"
+    shimmerTag.textContent = `
       @keyframes shimmer {
         0% { background-position: 200% 0; }
         100% { background-position: -200% 0; }
@@ -83,7 +90,40 @@ export function ThemeProvider({ children }) {
         border-radius: 8px;
       }
     `
-    document.head.appendChild(tag)
+    document.head.appendChild(shimmerTag)
+
+    // Atualiza scrollbar CSS dinamicamente
+    const existingScrollbar = document.getElementById("scrollbar-style")
+    if (existingScrollbar) existingScrollbar.remove()
+    const scrollbarTag = document.createElement("style")
+    scrollbarTag.id = "scrollbar-style"
+    scrollbarTag.textContent = `
+      ::-webkit-scrollbar {
+        width: 12px;
+        height: 12px;
+      }
+      ::-webkit-scrollbar-track {
+        background: ${t.scrollbarTrack};
+        border-radius: 99px;
+      }
+      ::-webkit-scrollbar-thumb {
+        background: ${t.scrollbarThumb};
+        border-radius: 99px;
+        border: 2px solid ${t.scrollbarTrack};
+        transition: background .2s;
+      }
+      ::-webkit-scrollbar-thumb:hover {
+        background: ${t.scrollbarThumbHover};
+      }
+      ::-webkit-scrollbar-corner {
+        background: ${t.scrollbarTrack};
+      }
+      * {
+        scrollbar-width: thin;
+        scrollbar-color: ${t.scrollbarThumb} ${t.scrollbarTrack};
+      }
+    `
+    document.head.appendChild(scrollbarTag)
   }, [mode])
 
   const toggle = () => setMode(m => m === "dark" ? "light" : "dark")
