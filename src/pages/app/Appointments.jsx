@@ -184,10 +184,11 @@ function GroupAssignModal({ patient, clinicId, onClose }) {
       <div style={{
         background:t.bgInset, border:`1px solid ${t.border}`, borderRadius:16,
         width:"100%", maxWidth:420, display:"flex", flexDirection:"column",
+        maxHeight:"70vh",
       }}>
         {/* Header */}
         <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center",
-          padding:"18px 24px", borderBottom:`1px solid ${t.border}` }}>
+          padding:"18px 24px", borderBottom:`1px solid ${t.border}`, flexShrink:0 }}>
           <div>
             <h2 style={{ fontSize:15, fontWeight:700, color:t.textPrimary, margin:0 }}>
               Adicionar a uma turma?
@@ -199,7 +200,7 @@ function GroupAssignModal({ patient, clinicId, onClose }) {
           <button style={{ background:"transparent", border:"none", color:t.textGhost, fontSize:18, cursor:"pointer" }} onClick={onClose}>✕</button>
         </div>
 
-        <div style={{ padding:24, display:"flex", flexDirection:"column", gap:16 }}>
+        <div style={{ padding:24, display:"flex", flexDirection:"column", gap:16, overflowY:"auto" }}>
           {done ? (
             <div style={{ textAlign:"center", padding:"16px 0" }}>
               <div style={{ fontSize:32, marginBottom:8 }}>✓</div>
@@ -290,10 +291,16 @@ const PAYMENT_METHODS = {
  * Props:
  *   onClose, onSave(patientName, appointmentId, patientObj)
  *   staffList, clinicId, specialties
- *   serviceTypes — array de { id, name, price, sessions_in_package }
+ *   productTypes (Tabela no supabase registrado como "product_types") — array de { id, name, price, sessions_in_package }
+ *   initialData — optional: objeto do agendamento para edição { id, client_id, staff_id, datetime, status, specialty, product_type_id }
+ *   patientMap  — optional: mapa de pacientes { [id]: { id, name, phone } } para pré-preencher paciente na edição
  */
-function AppointmentModal({ onClose, onSave, staffList, clinicId, specialties, serviceTypes = [] }) {
+function AppointmentModal({ onClose, onSave, staffList, clinicId, specialties, productTypes = [], initialData = null, patientMap = {} }) {
   const { t } = useTheme()
+  
+  // Flag de modo edição
+  const isEditing = !!initialData?.id
+
   // Agendamento
   const [patient,   setPatient]   = useState(null)
   const [staffId,   setStaffId]   = useState("")
@@ -304,8 +311,8 @@ function AppointmentModal({ onClose, onSave, staffList, clinicId, specialties, s
   const [error,     setError]     = useState(null)
 
   // Tipo de serviço selecionado
-  const [serviceTypeId, setServiceTypeId] = useState("")
-  const selectedService = serviceTypes.find(s => s.id === serviceTypeId) ?? null
+  const [productTypeId, setProductTypeId] = useState("")
+  const selectedProduct = productTypes.find(p => p.id === productTypeId) ?? null
 
   // Lançamento financeiro
   const [addPayment,  setAddPayment]  = useState(false)
@@ -323,17 +330,31 @@ function AppointmentModal({ onClose, onSave, staffList, clinicId, specialties, s
 
   // Preenche valor e descrição automaticamente ao selecionar tipo de serviço
   useEffect(() => {
-    if (selectedService) {
-      setPayAmount(String(selectedService.price ?? ""))
-      setPayDesc(selectedService.name)
-      if (selectedService.price) setAddPayment(true)
+    if (selectedProduct) {
+      setPayAmount(String(selectedProduct.price ?? ""))
+      setPayDesc(selectedProduct.name)
+      if (selectedProduct.price) setAddPayment(true)
     }
-  }, [serviceTypeId])
+  }, [productTypeId])
 
   // Preenche descrição automaticamente pela especialidade (fallback sem tipo de serviço)
   useEffect(() => {
-    if (specialty && !payDesc && !selectedService) setPayDesc(`Consulta - ${specialty}`)
+    if (specialty && !payDesc && !selectedProduct) setPayDesc(`Consulta - ${specialty}`)
   }, [specialty])
+
+  // Preenche campos quando em modo edicao
+  useEffect(() => {
+    if (initialData) {
+      setDatetime(initialData.datetime ? initialData.datetime.slice(0, 16) : "")
+      setStatus(initialData.status || "scheduled")
+      setSpecialty(initialData.specialty || "")
+      setStaffId(initialData.staff_id || "")
+      setProductTypeId(initialData.product_type_id || "")
+      if (initialData.client_id && patientMap[initialData.client_id]) {
+        setPatient(patientMap[initialData.client_id])
+      }
+    }
+  }, [initialData])
 
   async function handleSave() {
     if (!patient)  { setError("Selecione um paciente"); return }
@@ -343,27 +364,57 @@ function AppointmentModal({ onClose, onSave, staffList, clinicId, specialties, s
     }
     setError(null); setLoading(true)
 
-    // 1. Cria o agendamento
-    const { data: appt, error: apptError } = await supabase
-      .from("appointments")
-      .insert([{
-        clinic_id:       clinicId,
-        client_id:       patient.id,
-        staff_id:        staffId || null,
-        datetime,
-        status,
-        specialty:       specialty || null,
-        service_type_id: serviceTypeId || null,
-      }])
-      .select().single()
+    // Converte datetime local para UTC antes de salvar no banco
+    const datetimeUtc = datetime ? new Date(datetime).toISOString() : datetime
 
-    if (apptError) { setError(apptError.message); setLoading(false); return }
+    let appt = null
+
+    // 1. Cria ou atualiza o agendamento
+    if (isEditing) {
+      // Modo edicao: UPDATE
+      const { data, error: apptError } = await supabase
+        .from("appointments")
+        .update({
+          client_id:       patient.id,
+          staff_id:        staffId || null,
+          datetime:        datetimeUtc,
+          status,
+          specialty:       specialty || null,
+          product_type_id: productTypeId || null,
+          updated_at:      new Date().toISOString(),
+        })
+        .eq("id", initialData.id)
+        .select().single()
+
+      if (apptError) { setError(apptError.message); setLoading(false); return }
+      appt = data
+    } else {
+      // Modo criacao: INSERT
+      const { data, error: apptError } = await supabase
+        .from("appointments")
+        .insert([{
+          clinic_id:       clinicId,
+          client_id:       patient.id,
+          staff_id:        staffId || null,
+          datetime:        datetimeUtc,
+          status,
+          specialty:       specialty || null,
+          product_type_id: productTypeId || null,
+        }])
+        .select().single()
+
+      if (apptError) { setError(apptError.message); setLoading(false); return }
+      appt = data
+    }
 
     // 2. Cria o lançamento financeiro se solicitado
     if (addPayment && payAmount) {
       const amount   = parseFloat(payAmount)
       const discount = parseFloat(payDiscount) || 0
-      await supabase.from("payments").insert([{
+
+      // NOTA: product_type_id será adicionado ao payments após a migration correspondente.
+      // Por ora é omitido para evitar erro 400 de coluna inexistente.
+      const paymentPayload = {
         clinic_id:      clinicId,
         patient_id:     patient.id,
         appointment_id: appt.id,
@@ -373,8 +424,10 @@ function AppointmentModal({ onClose, onSave, staffList, clinicId, specialties, s
         status:         payStatus,
         description:    payDesc.trim() || `Consulta - ${specialty || "Geral"}`,
         paid_at:        payStatus === "paid" ? new Date().toISOString() : null,
-        service_type_id: serviceTypeId || null,
-      }])
+      }
+
+      const { error: payError } = await supabase.from("payments").insert([paymentPayload])
+      if (payError) console.error("Payment insert error:", payError.message)
     }
 
     // 3. Envia confirmação WhatsApp
@@ -397,7 +450,9 @@ function AppointmentModal({ onClose, onSave, staffList, clinicId, specialties, s
 
         <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center",
           padding:"18px 24px", borderBottom:`1px solid ${t.border}`, flexShrink:0 }}>
-          <h2 style={{ fontSize:16, fontWeight:700, color:t.textPrimary, margin:0 }}>Novo agendamento</h2>
+          <h2 style={{ fontSize:16, fontWeight:700, color:t.textPrimary, margin:0 }}>
+            {isEditing ? "Editar agendamento" : "Novo agendamento"}
+          </h2>
           <button style={{ background:"transparent", border:"none", color:t.textGhost, fontSize:18, cursor:"pointer" }} onClick={onClose}>✕</button>
         </div>
 
@@ -444,40 +499,40 @@ function AppointmentModal({ onClose, onSave, staffList, clinicId, specialties, s
           )}
 
           {/* ── Tipo de serviço ── */}
-          {serviceTypes.length > 0 && (
+          {productTypes.length > 0 && (
             <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
               <label style={{ fontSize:12, fontWeight:600, color:t.textFaint }}>Tipo de serviço</label>
-              <select value={serviceTypeId} onChange={e=>setServiceTypeId(e.target.value)}
+              <select value={productTypeId} onChange={e=>setProductTypeId(e.target.value)}
                 style={{ background:t.bgInput, border:`1px solid ${t.border}`, borderRadius:8,
                   padding:"10px 12px", fontSize:14, color:t.textPrimary, outline:"none",
                   width:"100%", boxSizing:"border-box", cursor:"pointer" }}>
                 <option value="">Sem tipo definido</option>
-                {serviceTypes.map(s=>(
-                  <option key={s.id} value={s.id}>
-                    {s.name}{s.price ? ` — ${formatCurrency(s.price)}` : ""}
-                    {s.sessions_in_package ? ` (pacote ${s.sessions_in_package}x)` : ""}
+                {productTypes.map(p=>(
+                  <option key={p.id} value={p.id}>
+                    {p.name}{p.price ? ` — ${formatCurrency(p.price)}` : ""}
+                    {p.sessions_in_package ? ` (pacote ${p.sessions_in_package}x)` : ""}
                   </option>
                 ))}
               </select>
               {/* Preview do serviço selecionado */}
-              {selectedService && (
+              {selectedProduct && (
                 <div style={{ background:t.bgCard, borderRadius:8, padding:"10px 14px",
                   border:`1px solid ${t.accent}33`, display:"flex", gap:16, flexWrap:"wrap" }}>
-                  {selectedService.price != null && (
+                  {selectedProduct.price != null && (
                     <div>
                       <span style={{ fontSize:11, color:t.textFaint, display:"block" }}>Valor</span>
-                      <span style={{ fontSize:14, fontWeight:700, color:t.accent }}>{formatCurrency(selectedService.price)}</span>
+                      <span style={{ fontSize:14, fontWeight:700, color:t.accent }}>{formatCurrency(selectedProduct.price)}</span>
                     </div>
                   )}
-                  {selectedService.sessions_in_package && (
+                  {selectedProduct.sessions_in_package && (
                     <div>
                       <span style={{ fontSize:11, color:t.textFaint, display:"block" }}>Pacote</span>
-                      <span style={{ fontSize:14, fontWeight:700, color:t.textPrimary }}>{selectedService.sessions_in_package} sessões</span>
+                      <span style={{ fontSize:14, fontWeight:700, color:t.textPrimary }}>{selectedProduct.sessions_in_package} sessões</span>
                     </div>
                   )}
-                  {selectedService.description && (
+                  {selectedProduct.description && (
                     <div style={{ width:"100%" }}>
-                      <span style={{ fontSize:12, color:t.textGhost }}>{selectedService.description}</span>
+                      <span style={{ fontSize:12, color:t.textGhost }}>{selectedProduct.description}</span>
                     </div>
                   )}
                 </div>
@@ -619,7 +674,7 @@ function AppointmentModal({ onClose, onSave, staffList, clinicId, specialties, s
           padding:"16px 24px", borderTop:`1px solid ${t.border}`, flexShrink:0 }}>
           <Button onClick={onClose} variant="secondary">Cancelar</Button>
           <Button onClick={handleSave} disabled={loading} loading={loading}>
-            {loading ? "Salvando..." : addPayment ? "Agendar + Lançar" : "Agendar"}
+            {loading ? "Salvando..." : isEditing ? "Salvar" : addPayment ? "Agendar + Lançar" : "Agendar"}
           </Button>
         </div>
       </div>
@@ -690,7 +745,7 @@ export default function Appointments() {
   const [patientMap,   setPatientMap]   = useState({})
   const [staffMap,     setStaffMap]     = useState({})
   const [staffList,    setStaffList]    = useState([])
-  const [serviceTypes, setServiceTypes] = useState([])
+  const [productTypes, setProductTypes] = useState([])
   const [fetching,     setFetching]     = useState(true)
 
   // UI
@@ -709,6 +764,10 @@ export default function Appointments() {
   // Modal de turma pós-agendamento
   const [groupModal, setGroupModal] = useState(null) // { patient }
 
+  // Modal de edição de agendamento
+  const [editModal, setEditModal] = useState(false)
+  const [editingAppt, setEditingAppt] = useState(null)
+
   const searchTimeout = useRef(null)
 
   // ── Carrega dados ──
@@ -719,7 +778,7 @@ export default function Appointments() {
 
   async function loadAll() {
     setFetching(true)
-    const [apptRes, patientRes, staffRes, serviceRes] = await Promise.all([
+    const [apptRes, patientRes, staffRes, productRes] = await Promise.all([
       supabase.from("appointments").select("*")
         .eq("clinic_id", clinicId).is("deleted_at", null)
         .order("datetime", { ascending: false }).limit(500),
@@ -727,7 +786,7 @@ export default function Appointments() {
         .eq("clinic_id", clinicId).is("deleted_at", null),
       supabase.from("staff").select("id,name")
         .eq("clinic_id", clinicId).is("deleted_at", null),
-      supabase.from("service_types").select("id,name,price,sessions_in_package,description,specialty")
+      supabase.from("product_types").select("id,name,price,sessions_in_package,description,specialty")
         .eq("clinic_id", clinicId).eq("active", true).is("deleted_at", null).order("name"),
     ])
 
@@ -736,7 +795,7 @@ export default function Appointments() {
     const sMap = Object.fromEntries((staffRes.data ?? []).map(s=>[s.id,s]))
     setStaffMap(sMap)
     setStaffList(staffRes.data ?? [])
-    setServiceTypes(serviceRes.data ?? [])
+    setProductTypes(productRes.data ?? [])
     setFetching(false)
   }
 
@@ -783,6 +842,19 @@ export default function Appointments() {
     showToast(`Agendamento de ${patientName} criado!`)
     // Abre modal de turma após pequeno delay (UX: toast aparece primeiro)
     setTimeout(() => setGroupModal({ patient: patientObj }), 400)
+  }
+
+  // ── Editar agendamento ──
+  function handleEditClick(appt) {
+    setEditingAppt(appt)
+    setEditModal(true)
+  }
+
+  function handleEdited(patientName, apptId) {
+    setEditModal(false)
+    setEditingAppt(null)
+    loadAll()
+    showToast(`Agendamento de ${patientName} atualizado!`)
   }
 
   // ── Filtros ──
@@ -835,7 +907,7 @@ export default function Appointments() {
           staffList={staffList}
           clinicId={clinicId}
           specialties={clinic?.specialties ?? []}
-          serviceTypes={serviceTypes}
+          productTypes={productTypes}
         />
       )}
 
@@ -845,6 +917,20 @@ export default function Appointments() {
           patient={groupModal.patient}
           clinicId={clinicId}
           onClose={() => setGroupModal(null)}
+        />
+      )}
+
+      {/* Modal de edição de agendamento */}
+      {editModal && (
+        <AppointmentModal
+          onClose={() => { setEditModal(false); setEditingAppt(null) }}
+          onSave={handleEdited}
+          staffList={staffList}
+          clinicId={clinicId}
+          specialties={clinic?.specialties ?? []}
+          productTypes={productTypes}
+          initialData={editingAppt}
+          patientMap={patientMap}
         />
       )}
 
@@ -882,7 +968,7 @@ export default function Appointments() {
             staffMap={staffMap}
             onStatusChange={handleStatusChange}
             onDelete={handleDelete}
-            onEdit={appt => console.log("edit", appt)} // TODO: EditModal
+            onEdit={handleEditClick}
             selectedDate={selectedDate}
             onDateChange={setSelectedDate}
             isMobile={isMobile}
@@ -969,6 +1055,7 @@ export default function Appointments() {
                             style={{ background:t.bgInset, border:`1px solid ${t.border}`, borderRadius:6, padding:"4px 8px", fontSize:12, fontWeight:700, cursor:"pointer", outline:"none", flex:1, color:STATUS_CONFIG[a.status]?.color??"#64748b", opacity:changingStatus===a.id?0.5:1 }}>
                             {Object.entries(STATUS_CONFIG).map(([k,cfg])=><option key={k} value={k}>{cfg.label}</option>)}
                           </select>
+                          <Button onClick={() => handleEditClick(a)} size="sm" variant="ghost">Editar</Button>
                           <Button onClick={()=>handleDelete(a.id)} size="sm" variant="ghost">Remover</Button>
                         </div>
                       </div>
@@ -1002,7 +1089,8 @@ export default function Appointments() {
                           </select>
                         </td>
                         <td style={{ ...s.td, textAlign:"right" }}>
-                          <Button onClick={()=>handleDelete(a.id)} size="sm" variant="ghost">Remover</Button>
+                          <Button onClick={() => handleEditClick(a)} size="sm" variant="ghost">Editar</Button>
+                          <Button onClick={()=>handleDelete(a.id)} size="sm" variant="ghost" style={{ marginLeft: 4 }}>Remover</Button>
                         </td>
                       </tr>
                     ))}

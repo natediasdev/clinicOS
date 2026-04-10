@@ -29,13 +29,13 @@ const MONTHS_PT = ["Janeiro","Fevereiro","Março","Abril","Maio","Junho",
 
 // Cores por especialidade — complementam a cor de status
 const SPECIALTY_COLORS = {
-  fisioterapia: { color: "#3b82f6", label: "Fisio"    },
-  pilates:      { color: "#8b5cf6", label: "Pilates"  },
-  odontologia:  { color: "#06b6d4", label: "Odonto"   },
-  psicologia:   { color: "#ec4899", label: "Psico"    },
-  nutricao:     { color: "#22c55e", label: "Nutri"    },
-  estetica:     { color: "#f59e0b", label: "Estética" },
-  geral:        { color: "#64748b", label: "Geral"    },
+  fisioterapia: { color: "#3b82f6", label: "Fisioterapia" },
+  pilates:      { color: "#8b5cf6", label: "Pilates"     },
+  odontologia:  { color: "#06b6d4", label: "Odontologia" },
+  psicologia:   { color: "#ec4899", label: "Psicologia"  },
+  nutricao:     { color: "#22c55e", label: "Nutrição"    },
+  estetica:     { color: "#f59e0b", label: "Estética"    },
+  geral:        { color: "#64748b", label: "Geral"       },
 }
 
 function getSpecialtyStyle(specialty) {
