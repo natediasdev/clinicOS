@@ -458,7 +458,7 @@ export default function Financial() {
   async function handleSendCharge(payment) {
     if (!payment.patient_id) { showToast("Paciente não encontrado", "error"); return }
     showToast("Enviando cobrança...")
-    const { data, error } = await supabase.functions.invoke("send-email", {
+    const { data, error } = await supabase.functions.invoke("send-whatsapp", {
       body: { type:"charge", patient_id:payment.patient_id, clinic_id:clinicId, payment_id:payment.id }
     })
     if (error) showToast("Erro ao enviar: " + error.message, "error")
