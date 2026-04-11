@@ -430,10 +430,13 @@ function AppointmentModal({ onClose, onSave, staffList, clinicId, specialties, p
       if (payError) console.error("Payment insert error:", payError.message)
     }
 
-    // 3. Envia confirmação WhatsApp
+    // 3. Envia confirmação WhatsApp (silencioso - não bloqueia criação)
     if (patient.phone) {
       supabase.functions.invoke("send-whatsapp", {
         body: { type: "confirmation", appointment_id: appt.id }
+      }).then(({ data, error }) => {
+        if (error) console.error("WhatsApp error:", error.message)
+        else if (data?.sent > 0) console.log("WhatsApp confirmation sent")
       }).catch(() => {})
     }
 

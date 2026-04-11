@@ -5,7 +5,7 @@ import { useAuth } from "../../context/AuthContext"
 import { useTheme } from "../../context/ThemeContext"
 import AppLayout from "../AppLayout"
 import RevenueChart from "../../components/financial/RevenueChart"
-import { Button, Input } from "../../components/ui"
+import { Button, Input, Badge } from "../../components/ui"
 import { STATUS_COLORS } from "../../config/statusColors"
 
 // ─── SVG Icons ────────────────────────────────────────────────────────────────
@@ -393,9 +393,10 @@ export default function Financial() {
   const { t }        = useTheme()
   const isMobile     = useIsMobile()
 
-  const [payments,     setPayments]     = useState([])
-  const [patientMap,   setPatientMap]   = useState({})
-  const [fetching,     setFetching]     = useState(true)
+  const [payments,       setPayments]       = useState([])
+  const [patientMap,     setPatientMap]     = useState({})
+  const [chargeSentMap,  setChargeSentMap]  = useState({})  // { [paymentId]: created_at }
+  const [fetching,        setFetching]       = useState(true)
   const [showModal,    setShowModal]    = useState(false)
   const [editPayment,  setEditPayment]  = useState(null)  // pagamento sendo editado
   const [toast,        setToast]        = useState(null)
@@ -420,7 +421,25 @@ export default function Financial() {
       const { data: pts } = await supabase.from("patients").select("id,name").in("id", ids)
       pts?.forEach(p => { pMap[p.id] = p.name })
     }
-    setPayments(pays); setPatientMap(pMap); setFetching(false)
+
+    // Buscar cobranças enviadas com sucesso
+    const paymentIds = pays.map(p => p.id)
+    let sentMap = {}
+    if (paymentIds.length) {
+      const { data: logs } = await supabase.from("whatsapp_logs")
+        .select("payment_id, created_at")
+        .eq("type", "charge")
+        .eq("status", "sent")
+        .in("payment_id", paymentIds)
+      logs?.forEach(log => {
+        // Mantém o mais recente se houver múltiplos
+        if (!sentMap[log.payment_id] || new Date(log.created_at) > new Date(sentMap[log.payment_id])) {
+          sentMap[log.payment_id] = log.created_at
+        }
+      })
+    }
+
+    setPayments(pays); setPatientMap(pMap); setChargeSentMap(sentMap); setFetching(false)
   }
 
   const aggregateRevenueByWeek = (pays) => {
@@ -455,14 +474,17 @@ export default function Financial() {
     if (!error) { fetchPayments(); showToast("Lançamento removido.", "error") }
   }
 
-  async function handleSendCharge(payment) {
+async function handleSendCharge(payment) {
     if (!payment.patient_id) { showToast("Paciente não encontrado", "error"); return }
     showToast("Enviando cobrança...")
     const { data, error } = await supabase.functions.invoke("send-whatsapp", {
-      body: { type:"charge", patient_id:payment.patient_id, clinic_id:clinicId, payment_id:payment.id }
+      body: { type: "charge", patient_id: payment.patient_id, clinic_id: clinicId, payment_id: payment.id }
     })
-    if (error) showToast("Erro ao enviar: " + error.message, "error")
-    else if (data?.success) showToast("Cobrança enviada!")
+    if (error) showToast("Erro ao enviar", "error")
+    else if (data?.sent > 0) {
+      showToast("Cobrança enviada!")
+      setChargeSentMap(prev => ({ ...prev, [payment.id]: new Date().toISOString() }))
+    }
     else showToast(data?.error || "Erro ao enviar", "error")
   }
 
@@ -602,7 +624,7 @@ export default function Financial() {
                 return (
                   <div key={p.id} style={{ background:t.bgInset, borderRadius:10, padding:"14px 16px",
                     display:"flex", flexDirection:"column", gap:8 }}>
-                    <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+                    <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", gap: 8 }}>
                       <span style={{ fontWeight:700, color:t.textPrimary, fontSize:16 }}>
                         {formatCurrency(p.final_amount)}
                       </span>
@@ -629,8 +651,19 @@ export default function Financial() {
                         </button>
                         {p.status === "pending" && (
                           <>
-                            <Button onClick={() => handleSendCharge(p)} size="sm" variant="secondary">
-                              {Icons.send(t.textMuted)}
+                            {chargeSentMap[p.id] && (
+                              <Badge variant="success" style={{ fontSize: 12, padding: "2px 8px", marginBottom: 4, display: "block", textAlign: "center" }}>
+                                ✓ Enviada em {formatDate(chargeSentMap[p.id])}
+                              </Badge>
+                            )}
+                            <Button 
+                              onClick={() => handleSendCharge(p)} 
+                              size="sm" 
+                              variant={chargeSentMap[p.id] ? "ghost" : "secondary"}
+                              style={chargeSentMap[p.id] ? { border: `1px solid ${t.border}`, color: t.textMuted } : {}}
+                            >
+                              {Icons.send(chargeSentMap[p.id] ? t.textMuted : t.textMuted)}
+                              {chargeSentMap[p.id] ? "Cobrar Novamente" : "Enviar Cobrança"}
                             </Button>
                             <Button onClick={() => handleStatusChange(p.id, "paid")} size="sm"
                               style={{ background:t.successBg, border:`1px solid ${t.successBorder}`, color:t.successText,
@@ -711,12 +744,19 @@ export default function Financial() {
                           </button>
                           {p.status === "pending" && (
                             <>
-                              <button onClick={() => handleSendCharge(p)} title="Enviar cobrança" style={{
-                                background:"transparent", border:`1px solid ${t.border}`, color:t.textGhost,
-                                borderRadius:6, padding:"5px 8px", cursor:"pointer",
-                                display:"flex", alignItems:"center",
+                              {chargeSentMap[p.id] && (
+                                <Badge variant="success" style={{ fontSize: 12, padding: "2px 8px", marginBottom: 4, display: "block", textAlign: "center" }}>
+                                  ✓ Enviada em {formatDate(chargeSentMap[p.id])}
+                                </Badge>
+                              )}
+                              <button onClick={() => handleSendCharge(p)} title={chargeSentMap[p.id] ? "Cobrar novamente" : "Enviar cobrança"} style={{
+                                background: chargeSentMap[p.id] ? t.bgInset : "transparent", 
+                                border: `1px solid ${t.border}`, color: t.textMuted,
+                                borderRadius:6, padding:"5px 10px", cursor:"pointer",
+                                display:"flex", alignItems:"center", gap:4, fontSize:11, fontWeight:600,
                               }}>
-                                {Icons.send(t.textGhost)}
+                                {Icons.send(t.textMuted)}
+                                {chargeSentMap[p.id] ? "Cobrar Novamente" : "Enviar Cobrança"}
                               </button>
                               <Button onClick={() => handleStatusChange(p.id, "paid")} size="sm"
                                 style={{ background:t.successBg, border:`1px solid ${t.successBorder}`,
