@@ -3,9 +3,11 @@ import { Link } from "react-router-dom"
 import { MotionToast } from "../../components/ui/MotionComponents"
 import { supabase } from "../../supabaseClient"
 import { useAuth } from "../../context/AuthContext"
+import { usePermissions } from "../../hooks/usePermissions"
 import { useTheme } from "../../context/ThemeContext"
 import AppLayout from "../AppLayout"
 import { Button, Input, Card } from "../../components/ui"
+import WhatsAppCard from "../../components/WhatsAppCard"
 
 const DEFAULT_SPECIALTIES = [
   { id: "fisioterapia", label: "Fisioterapia", icon: "🦴" },
@@ -50,6 +52,7 @@ function PlanBadge({ plan, color }) {
 
 export default function ClinicProfile() {
   const { clinic, clinicId, user, refreshClinic } = useAuth()
+  const { isAdmin } = usePermissions()
   const { t } = useTheme()
 
   const [name,                setName]                = useState("")
@@ -350,6 +353,10 @@ export default function ClinicProfile() {
                 </div>
               ))}
             </Card>
+
+            {/* ── Card WhatsApp ── */}
+            <WhatsAppCard isAdmin={isAdmin} />
+
           </div>
         </div>
       </div>
