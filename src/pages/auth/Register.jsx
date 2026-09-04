@@ -2,37 +2,38 @@ import { useState, useEffect } from "react"
 import { useNavigate } from "react-router-dom"
 import { supabase } from "../../supabaseClient"
 import { useTheme } from "../../context/ThemeContext"
-import { PLAN_PRICES } from "../../hooks/usePlanLimits"
 import { Button, Input } from "../../components/ui"
 import { MotionToast } from "../../components/ui/MotionComponents"
 
-const BILLING_CYCLES = [
-  { id: "monthly", label: "Mensal", discount: 0 },
-  { id: "quarterly", label: "Trimestral", discount: 10 },
-  { id: "semiannual", label: "Semestral", discount: 15 },
-]
+async function startTrial(clinicId) {
+  const trialEnd = new Date()
+  trialEnd.setDate(trialEnd.getDate() + 14)
 
-const FEATURES = [
-  "Pacientes ilimitados",
-  "Equipe completa",
-  "Prontuário eletrônico",
-  "Financeiro completo",
-  "Dashboard avançado",
-]
+  const { error } = await supabase
+    .from("clinics")
+    .update({ plan: "pro", trial_end: trialEnd.toISOString() })
+    .eq("id", clinicId)
+  if (error) throw error
+
+  await supabase.from("subscriptions").insert({
+    clinic_id: clinicId,
+    billing_cycle: "monthly",
+    status: "trial",
+    trial_end: trialEnd.toISOString(),
+    current_period_end: trialEnd.toISOString(),
+  })
+}
 
 export default function Register() {
   const { t } = useTheme()
   const navigate = useNavigate()
-  const [step, setStep] = useState("register")
   const [name, setName] = useState("")
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [confirmPassword, setConfirmPassword] = useState("")
-  const [selectedCycle, setSelectedCycle] = useState("monthly")
   const [loading, setLoading] = useState(false)
   const [toast, setToast] = useState(null)
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 768)
-  const [newClinicId, setNewClinicId] = useState(null)
 
   useEffect(() => {
     const handleResize = () => setIsMobile(window.innerWidth <= 768)
@@ -92,15 +93,17 @@ export default function Register() {
           .single()
 
         if (profile?.clinic_id) {
-          setNewClinicId(profile.clinic_id)
-          showToast("Conta criada! Escolha seu plano...")
-          setStep("plan-select")
-        } else {
-          showToast("Conta criada! Redirecionando...")
-          setTimeout(() => navigate("/onboarding"), 1500)
+          try {
+            await startTrial(profile.clinic_id)
+            showToast("Conta criada! Período de teste de 14 dias ativado.")
+          } catch (trialErr) {
+            console.error("Start trial error:", trialErr)
+            // Conta já existe mesmo se o trial falhar — segue o fluxo normalmente
+          }
         }
+        setTimeout(() => navigate("/onboarding"), 1500)
       } else {
-        // Email confirmation ativado — usuário precisa confirmar antes de pagar
+        // Email confirmation ativado — usuário precisa confirmar antes de entrar
         showToast("Conta criada! Confirme seu e-mail para continuar.")
         setTimeout(() => navigate("/login"), 2000)
       }
@@ -113,188 +116,6 @@ export default function Register() {
     setLoading(false)
   }
 
-  async function handleStartTrial() {
-    if (!newClinicId) return
-    setLoading(true)
-
-    try {
-      const trialEnd = new Date()
-      trialEnd.setDate(trialEnd.getDate() + 14)
-
-      const { error } = await supabase
-        .from("clinics")
-        .update({ plan: "pro", trial_end: trialEnd.toISOString() })
-        .eq("id", newClinicId)
-
-      if (error) throw error
-
-      await supabase.from("subscriptions").insert({
-        clinic_id: newClinicId,
-        billing_cycle: "monthly",
-        status: "trial",
-        trial_end: trialEnd.toISOString(),
-        current_period_end: trialEnd.toISOString(),
-      })
-
-      showToast("Período de teste ativado! 14 dias gratuitos.")
-      setTimeout(() => navigate("/onboarding"), 1500)
-
-    } catch (err) {
-      console.error("Start trial error:", err)
-      showToast(err.message || "Erro ao iniciar teste", "error")
-    }
-
-    setLoading(false)
-  }
-
-  async function handleSubscribe() {
-    if (!newClinicId) return
-    setLoading(true)
-
-    try {
-      // Garante que a sessão atual está ativa antes de invocar a edge function
-      const { data: sessionData } = await supabase.auth.getSession()
-      if (!sessionData?.session) {
-        showToast("Sessão expirada. Faça login novamente.", "error")
-        setLoading(false)
-        return
-      }
-
-      const { data, error } = await supabase.functions.invoke("create-checkout", {
-        body: {
-          clinic_id: newClinicId,
-          billing_cycle: selectedCycle,
-        },
-      })
-
-      if (error) {
-        // Tenta extrair mensagem de erro da edge function
-        const detail = error?.context?.json?.error || error?.message || "Erro ao criar checkout"
-        throw new Error(detail)
-      }
-
-      if (data?.initPoint) {
-        window.location.href = data.initPoint
-      } else {
-        showToast("Checkout criado mas sem URL de pagamento. Contate o suporte.", "error")
-      }
-    } catch (err) {
-      console.error("Subscribe error:", err)
-      showToast(err.message || "Erro ao processar assinatura", "error")
-    }
-
-    setLoading(false)
-  }
-
-  const currentPrice = PLAN_PRICES.pro[selectedCycle]
-  const monthlyEquivalent =
-    selectedCycle === "monthly"
-      ? PLAN_PRICES.pro.monthly
-      : Math.round(PLAN_PRICES.pro[selectedCycle] / (selectedCycle === "quarterly" ? 3 : 6))
-
-  // ── Step: seleção de plano ─────────────────────────────────────────────────
-  if (step === "plan-select") {
-    return (
-      <div style={{
-        minHeight: "100vh",
-        background: t.bgPage,
-        padding: "40px 20px",
-        fontFamily: "'DM Sans','Segoe UI',sans-serif",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-      }}>
-        <MotionToast toast={toast}>
-          <div style={{
-            position: "fixed", bottom: 24, right: 24,
-            padding: "12px 20px", borderRadius: 10, border: "1px solid",
-            background: toast?.type === "success" ? t.successBg : t.errorBg,
-            borderColor: toast?.type === "success" ? t.successBorder : t.errorBorder,
-            color: toast?.type === "success" ? t.successText : t.errorText,
-            fontWeight: 600, fontSize: 14, zIndex: 999,
-          }}>
-            {toast?.type === "success" ? "✓" : "✕"} {toast?.msg}
-          </div>
-        </MotionToast>
-
-        <div style={{ maxWidth: 480, width: "100%" }}>
-          <div style={{ textAlign: "center", marginBottom: 32 }}>
-            <h1 style={{ fontSize: 28, fontWeight: 800, color: t.textPrimary, marginBottom: 8 }}>
-              Escolha seu plano
-            </h1>
-            <p style={{ color: t.textFaint, fontSize: 14 }}>
-              Experimente 14 dias gratuitos ou assine agora
-            </p>
-          </div>
-
-          {/* Seletor de ciclo */}
-          <div style={{ display: "flex", gap: 8, justifyContent: "center", marginBottom: 24 }}>
-            {BILLING_CYCLES.map((cycle) => (
-              <button
-                key={cycle.id}
-                onClick={() => setSelectedCycle(cycle.id)}
-                style={{
-                  padding: "8px 16px", borderRadius: 8, border: "1px solid",
-                  borderColor: selectedCycle === cycle.id ? t.accent : t.border,
-                  background: selectedCycle === cycle.id ? t.accent : "transparent",
-                  color: selectedCycle === cycle.id ? "#fff" : t.textSecondary,
-                  fontWeight: 600, fontSize: 13, cursor: "pointer",
-                }}
-              >
-                {cycle.label}
-                {cycle.discount > 0 && (
-                  <span style={{ marginLeft: 4, fontSize: 11, opacity: 0.8 }}>-{cycle.discount}%</span>
-                )}
-              </button>
-            ))}
-          </div>
-
-          {/* Card de preço */}
-          <div style={{
-            background: t.bgCard, borderRadius: 16,
-            border: `1px solid ${t.border}`, padding: 24, marginBottom: 24,
-          }}>
-            <div style={{ textAlign: "center", marginBottom: 20 }}>
-              <div style={{ fontSize: 12, fontWeight: 700, color: t.accent, textTransform: "uppercase", letterSpacing: "0.5px" }}>
-                Plano Pro
-              </div>
-              <div style={{ display: "flex", alignItems: "baseline", justifyContent: "center", gap: 4 }}>
-                <span style={{ fontSize: 36, fontWeight: 800, color: t.textPrimary }}>R$ {monthlyEquivalent}</span>
-                <span style={{ color: t.textFaint, fontSize: 14 }}>/mês</span>
-              </div>
-              {selectedCycle !== "monthly" && (
-                <div style={{ fontSize: 13, color: t.textFaint, marginTop: 4 }}>
-                  R$ {currentPrice} total por {selectedCycle === "quarterly" ? "3 meses" : "6 meses"}
-                </div>
-              )}
-            </div>
-
-            <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
-              {FEATURES.map((feature, i) => (
-                <li key={i} style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 0", color: t.textSecondary, fontSize: 13 }}>
-                  <span style={{ color: "#22c55e" }}>✓</span> {feature}
-                </li>
-              ))}
-            </ul>
-          </div>
-
-          <Button onClick={handleSubscribe} disabled={loading} loading={loading} fullWidth style={{ marginBottom: 10 }}>
-            Assinar agora
-          </Button>
-
-          <Button onClick={handleStartTrial} disabled={loading} variant="secondary" fullWidth>
-            Experimentar grátis (14 dias)
-          </Button>
-
-          <p style={{ textAlign: "center", marginTop: 16, color: t.textFaint, fontSize: 12 }}>
-            Pagamento seguro via Mercado Pago. Cancele a qualquer momento.
-          </p>
-        </div>
-      </div>
-    )
-  }
-
-  // ── Step: cadastro ────────────────────────────────────────────────────────
   return (
     <div style={{
       minHeight: "100vh",
@@ -331,7 +152,7 @@ export default function Register() {
             Clinic<span style={{ color: t.accent }}>OS</span>
           </div>
           <p style={{ color: t.textFaint, fontSize: 14, margin: 0 }}>
-            Crie sua conta para começar
+            Crie sua conta e comece com 14 dias grátis
           </p>
         </div>
 

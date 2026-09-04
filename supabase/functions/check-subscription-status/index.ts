@@ -67,20 +67,23 @@ Deno.serve(async (req: Request) => {
         clinic: { plan: clinic.plan } })
     }
 
-    // Verifica assinatura ativa
+    // Trial expirado (chegou até aqui = trial_end nulo ou já passou).
+    // Só libera acesso se houver assinatura marcada como "active" manualmente
+    // por Nathan no Supabase — status "trial" antigo não conta mais aqui.
     const { data: subscription } = await supabase
       .from("subscriptions")
       .select("id, status, billing_cycle, current_period_end, mercadopago_id")
       .eq("clinic_id", clinicId)
-      .in("status", ["active", "trial"])
+      .eq("status", "active")
       .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle()
 
     if (!subscription) {
-      await supabase.from("clinics").update({ plan: "free" }).eq("id", clinicId)
-      return json({ active: false, status: "inactive",
-        reason: "Nenhuma assinatura ativa", clinic: { plan: "free" } })
+      // Não reseta clinic.plan para "free" — isso desligaria o bloqueio,
+      // já que o gate no front só bloqueia quando plan === "pro".
+      return json({ active: false, status: "awaiting_activation",
+        reason: "Trial expirado, aguardando liberação manual", clinic: { plan: clinic.plan } })
     }
 
     return json({

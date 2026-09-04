@@ -453,11 +453,11 @@ export default function AppLayout({ children }) {
                     ? `Trial expira em ${trialDaysLeft} dia${trialDaysLeft !== 1 ? "s" : ""}!`
                     : bannerState === "trial"
                     ? `Trial ativo · ${trialDaysLeft} dias restantes`
-                    : "Assine para continuar usando o ClinicOS"}
+                    : "Fale com a gente para ativar sua assinatura"}
                 </div>
                 <div style={{ color: "rgba(255,255,255,0.85)", fontSize: isMobile ? 11 : 12 }}>
                   {bannerState === "expiring"
-                    ? "Assine agora para não perder o acesso"
+                    ? "Vamos entrar em contato para confirmar a cobrança"
                     : bannerState === "trial"
                     ? "Explore todos os recursos gratuitamente"
                     : "Pacientes ilimitados, equipe e financeiro completo"}
@@ -481,7 +481,7 @@ export default function AppLayout({ children }) {
                 flexShrink: 0,
               }}
             >
-              {bannerState === "trial" ? "Ver planos" : "Assinar agora →"}
+              {bannerState === "trial" ? "Ver status" : "Saiba mais →"}
             </motion.button>
           </motion.div>
         )}

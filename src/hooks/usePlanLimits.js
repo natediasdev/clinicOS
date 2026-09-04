@@ -2,12 +2,7 @@ import { useAuth } from "../context/AuthContext"
 import { supabase } from "../supabaseClient"
 
 /**
- * PLANOS E PREÇOS
- *
- * Ciclos de cobrança:
- *   monthly    → preço cheio
- *   quarterly  → -10%
- *   semiannual → -15%
+ * PLANOS
  *
  * Plano Free:
  *   - Até 20 pacientes
@@ -22,14 +17,6 @@ import { supabase } from "../supabaseClient"
  *   - Financeiro
  *   - Dashboard completo
  */
-
-export const PLAN_PRICES = {
-  pro: {
-    monthly:    79,
-    quarterly:  Math.round(79 * 0.90 * 3),
-    semiannual: Math.round(79 * 0.85 * 6),
-  },
-}
 
 export const PLAN_CONFIG = {
   free: {
@@ -88,35 +75,6 @@ export function usePlanLimits() {
     return Math.max(0, remaining)
   }
 
-  async function checkSubscriptionStatus() {
-    if (!clinic) return { active: false, reason: "Clínica não encontrada." }
-    
-    if (isOnTrial()) {
-      return { active: true, status: 'trial', daysRemaining: getTrialDaysRemaining() }
-    }
-
-    if (!isPaid()) {
-      return { active: false, reason: "Plano free não possui assinatura." }
-    }
-
-    const { data: subscription } = await supabase
-      .from("subscriptions")
-      .select("*")
-      .eq("clinic_id", clinic.id)
-      .in("status", ["active", "trial"])
-      .single()
-
-    if (!subscription) {
-      return { active: false, reason: "Nenhuma assinatura ativa." }
-    }
-
-    if (subscription.status === "active") {
-      return { active: true, status: 'active', subscription }
-    }
-
-    return { active: false, reason: "Assinatura inativa." }
-  }
-
   async function checkPatientLimit() {
     if (!clinic) return { allowed: false, message: "Clínica não encontrada." }
     const limit = (clinic.patient_limit !== null && clinic.patient_limit !== undefined) 
@@ -145,19 +103,5 @@ export function usePlanLimits() {
     return { allowed: true, current, limit }
   }
 
-  function getPriceForCycle(plan, cycle = "monthly") {
-    return PLAN_PRICES[plan]?.[cycle] ?? null
-  }
-
-  function getMonthlyPrice(cycle = "monthly") {
-    const prices = PLAN_PRICES.pro
-    switch (cycle) {
-      case "monthly": return prices.monthly
-      case "quarterly": return Math.round(prices.quarterly / 3)
-      case "semiannual": return Math.round(prices.semiannual / 6)
-      default: return prices.monthly
-    }
-  }
-
-  return { checkPatientLimit, checkStaffLimit, planLabel, planFeatures, isFree, isPaid, isOnTrial, getTrialDaysRemaining, checkSubscriptionStatus, getPriceForCycle, getMonthlyPrice }
+  return { checkPatientLimit, checkStaffLimit, planLabel, planFeatures, isFree, isPaid, isOnTrial, getTrialDaysRemaining }
 }
