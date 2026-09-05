@@ -740,7 +740,7 @@ function CalendarView({ appointments, onDayClick }) {
 export default function Appointments() {
   const { t }                       = useTheme()
   const { clinicId, clinic }        = useAuth()
-  const { isAdmin }                 = usePermissions()
+  const { isAdmin, locked, canCreateAppointments, canDeleteAppointments, canChangeAppointmentStatus } = usePermissions()
   const isMobile                    = useIsMobile()
 
   // Dados
@@ -959,7 +959,7 @@ export default function Appointments() {
                 }}>{label}</button>
               ))}
             </div>
-            <Button onClick={() => setShowModal(true)}>+ Novo agendamento</Button>
+            {canCreateAppointments && <Button onClick={() => setShowModal(true)}>+ Novo agendamento</Button>}
           </div>
         </div>
 
@@ -976,6 +976,7 @@ export default function Appointments() {
             onDateChange={setSelectedDate}
             isMobile={isMobile}
             isAdmin={isAdmin}
+            locked={locked}
           />
         ) : view === "list" ? (
           <>
@@ -1054,12 +1055,12 @@ export default function Appointments() {
                         <span style={{ fontSize:13, color:t.textGhost }}>{formatDateTime(a.datetime)}</span>
                         {staffMap[a.staff_id] && <span style={{ fontSize:13, color:t.textGhost }}>👤 {staffMap[a.staff_id].name}</span>}
                         <div style={{ display:"flex", gap:8, marginTop:4 }}>
-                          <select value={a.status} disabled={changingStatus===a.id} onChange={e=>handleStatusChange(a.id,e.target.value)}
-                            style={{ background:t.bgInset, border:`1px solid ${t.border}`, borderRadius:6, padding:"4px 8px", fontSize:12, fontWeight:700, cursor:"pointer", outline:"none", flex:1, color:STATUS_CONFIG[a.status]?.color??"#64748b", opacity:changingStatus===a.id?0.5:1 }}>
+                          <select value={a.status} disabled={changingStatus===a.id || locked} onChange={e=>handleStatusChange(a.id,e.target.value)}
+                            style={{ background:t.bgInset, border:`1px solid ${t.border}`, borderRadius:6, padding:"4px 8px", fontSize:12, fontWeight:700, cursor:locked?"default":"pointer", outline:"none", flex:1, color:STATUS_CONFIG[a.status]?.color??"#64748b", opacity:(changingStatus===a.id||locked)?0.5:1 }}>
                             {Object.entries(STATUS_CONFIG).map(([k,cfg])=><option key={k} value={k}>{cfg.label}</option>)}
                           </select>
-                          <Button onClick={() => handleEditClick(a)} size="sm" variant="ghost">Editar</Button>
-                          <Button onClick={()=>handleDelete(a.id)} size="sm" variant="ghost">Remover</Button>
+                          {!locked && <Button onClick={() => handleEditClick(a)} size="sm" variant="ghost">Editar</Button>}
+                          {!locked && <Button onClick={()=>handleDelete(a.id)} size="sm" variant="ghost">Remover</Button>}
                         </div>
                       </div>
                     </MotionItem>
@@ -1086,14 +1087,20 @@ export default function Appointments() {
                         <td style={s.td}><span style={s.tdMain}>{formatDateTime(a.datetime)}</span></td>
                         <td style={s.td}><span style={s.tdMuted}>{staffMap[a.staff_id]?.name ?? "—"}</span></td>
                         <td style={s.td}>
-                          <select value={a.status} disabled={changingStatus===a.id} onChange={e=>handleStatusChange(a.id,e.target.value)}
-                            style={{ background:t.bgInset, border:`1px solid ${t.border}`, borderRadius:6, padding:"4px 8px", fontSize:12, fontWeight:700, cursor:"pointer", outline:"none", color:STATUS_CONFIG[a.status]?.color??"#64748b", opacity:changingStatus===a.id?0.5:1 }}>
+                          <select value={a.status} disabled={changingStatus===a.id || locked} onChange={e=>handleStatusChange(a.id,e.target.value)}
+                            style={{ background:t.bgInset, border:`1px solid ${t.border}`, borderRadius:6, padding:"4px 8px", fontSize:12, fontWeight:700, cursor:locked?"default":"pointer", outline:"none", color:STATUS_CONFIG[a.status]?.color??"#64748b", opacity:(changingStatus===a.id||locked)?0.5:1 }}>
                             {Object.entries(STATUS_CONFIG).map(([k,cfg])=><option key={k} value={k}>{cfg.label}</option>)}
                           </select>
                         </td>
                         <td style={{ ...s.td, textAlign:"right" }}>
-                          <Button onClick={() => handleEditClick(a)} size="sm" variant="ghost">Editar</Button>
-                          <Button onClick={()=>handleDelete(a.id)} size="sm" variant="ghost" style={{ marginLeft: 4 }}>Remover</Button>
+                          {locked ? (
+                            <span style={{ fontSize:12, color:t.textFaint }}>🔒 somente leitura</span>
+                          ) : (
+                            <>
+                              <Button onClick={() => handleEditClick(a)} size="sm" variant="ghost">Editar</Button>
+                              <Button onClick={()=>handleDelete(a.id)} size="sm" variant="ghost" style={{ marginLeft: 4 }}>Remover</Button>
+                            </>
+                          )}
                         </td>
                       </tr>
                     ))}

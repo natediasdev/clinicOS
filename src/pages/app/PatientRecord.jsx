@@ -4,6 +4,7 @@ import { useParams, useNavigate } from "react-router-dom"
 import { supabase } from "../../supabaseClient"
 import { useAuth } from "../../context/AuthContext"
 import { useTheme } from "../../context/ThemeContext"
+import { usePermissions } from "../../hooks/usePermissions"
 import AppLayout from "../AppLayout"
 import { Button, Input, Card } from "../../components/ui"
 import { STATUS_COLORS } from "../../config/statusColors"
@@ -49,7 +50,7 @@ function normalizeSpecialty(sp) {
     .trim()
 }
 
-function TabOverview({ patient, clinicId, clinic, t, isMobile }) {
+function TabOverview({ patient, clinicId, clinic, t, isMobile, locked }) {
   const [loading,    setLoading]    = useState(true)
   const [saving,     setSaving]     = useState(false)
   const [toast,      setToast]      = useState(null)
@@ -263,17 +264,23 @@ function TabOverview({ patient, clinicId, clinic, t, isMobile }) {
           </Section>
         )}
 
-        <Button onClick={handleSave} disabled={saving} loading={saving}
-          fullWidth={isMobile} style={{ alignSelf: "flex-start", width: isMobile ? "100%" : "auto" }}>
-          {saving ? "Salvando..." : "Salvar dados"}
-        </Button>
+        {locked ? (
+          <p style={{ fontSize:12, color:t.textFaint, margin:0 }}>
+            🔒 Edição bloqueada — aguardando liberação da assinatura.
+          </p>
+        ) : (
+          <Button onClick={handleSave} disabled={saving} loading={saving}
+            fullWidth={isMobile} style={{ alignSelf: "flex-start", width: isMobile ? "100%" : "auto" }}>
+            {saving ? "Salvando..." : "Salvar dados"}
+          </Button>
+        )}
       </div>
     </>
   )
 }
 
 // ─── Tab: Anotações clínicas ──────────────────────────────────────────────────
-function TabNotes({ patient, clinicId, user, t, isMobile }) {
+function TabNotes({ patient, clinicId, user, t, isMobile, locked }) {
   const [notes, setNotes] = useState([])
   const [loading, setLoading] = useState(true)
   const [text, setText] = useState("")
@@ -314,17 +321,23 @@ function TabNotes({ patient, clinicId, user, t, isMobile }) {
     <>
       <Toast toast={toast} />
       <div style={{ display:"flex", flexDirection:"column", gap:16 }}>
-        <Section title="Nova anotação" t={t}>
-          <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
-            <Input type="text" placeholder="Título (opcional)" value={title} onChange={e=>setTitle(e.target.value)} />
-            <textarea placeholder="Descreva a evolução clínica, observações, procedimentos realizados..." value={text} onChange={e=>setText(e.target.value)} rows={5}
-              style={{ background:t.bgInput, border:`1px solid ${t.border}`, borderRadius:8, padding:"10px 12px", fontSize:14, color:t.textPrimary, outline:"none", width:"100%", boxSizing:"border-box", resize:"vertical", lineHeight:1.6 }}
-              onFocus={e=>e.target.style.borderColor=t.accent} onBlur={e=>e.target.style.borderColor=t.border} />
-            <Button onClick={handleSave} disabled={saving||!text.trim()} loading={saving} fullWidth={isMobile} style={{ alignSelf: isMobile?"auto":"flex-start", width: isMobile?"100%":"auto" }}>
-              {saving ? "Salvando..." : "＋ Salvar anotação"}
-            </Button>
-          </div>
-        </Section>
+        {locked ? (
+          <p style={{ fontSize:12, color:t.textFaint, margin:0 }}>
+            🔒 Novas anotações bloqueadas — aguardando liberação da assinatura.
+          </p>
+        ) : (
+          <Section title="Nova anotação" t={t}>
+            <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
+              <Input type="text" placeholder="Título (opcional)" value={title} onChange={e=>setTitle(e.target.value)} />
+              <textarea placeholder="Descreva a evolução clínica, observações, procedimentos realizados..." value={text} onChange={e=>setText(e.target.value)} rows={5}
+                style={{ background:t.bgInput, border:`1px solid ${t.border}`, borderRadius:8, padding:"10px 12px", fontSize:14, color:t.textPrimary, outline:"none", width:"100%", boxSizing:"border-box", resize:"vertical", lineHeight:1.6 }}
+                onFocus={e=>e.target.style.borderColor=t.accent} onBlur={e=>e.target.style.borderColor=t.border} />
+              <Button onClick={handleSave} disabled={saving||!text.trim()} loading={saving} fullWidth={isMobile} style={{ alignSelf: isMobile?"auto":"flex-start", width: isMobile?"100%":"auto" }}>
+                {saving ? "Salvando..." : "＋ Salvar anotação"}
+              </Button>
+            </div>
+          </Section>
+        )}
 
         {loading ? (
           <div style={{ display:"flex",flexDirection:"column",gap:8 }}>{[1,2].map(i=><div key={i} className="skeleton-shimmer" style={{ height:80 }}/>)}</div>
@@ -342,7 +355,7 @@ function TabNotes({ patient, clinicId, user, t, isMobile }) {
                       {n.author_name && ` · ${n.author_name}`}
                     </span>
                   </div>
-                  <Button onClick={()=>handleDelete(n.id)} size="sm" variant="ghost">Remover</Button>
+                  {!locked && <Button onClick={()=>handleDelete(n.id)} size="sm" variant="ghost">Remover</Button>}
                 </div>
                 <p style={{ fontSize:14, color:t.textBody, lineHeight:1.7, margin:0, whiteSpace:"pre-wrap" }}>{n.content}</p>
               </div>
@@ -395,7 +408,7 @@ function TabHistory({ patient, t }) {
 }
 
 // ─── Tab: Anexos ──────────────────────────────────────────────────────────────
-function TabAttachments({ patient, clinicId, user, t, isMobile }) {
+function TabAttachments({ patient, clinicId, user, t, isMobile, locked }) {
   const [attachments, setAttachments] = useState([])
   const [loading, setLoading] = useState(true)
   const [uploading, setUploading] = useState(false)
@@ -460,15 +473,21 @@ function TabAttachments({ patient, clinicId, user, t, isMobile }) {
     <>
       <Toast toast={toast} />
       <div style={{ display:"flex", flexDirection:"column", gap:16 }}>
-        <div style={{ background:t.bgCard, borderRadius:10, padding:"20px", border:`2px dashed ${t.border}`, textAlign:"center" }}>
-          <span style={{ fontSize:32, display:"block", marginBottom:8 }}>📎</span>
-          <p style={{ fontSize:14, color:t.textMuted, margin:"0 0 12px", fontWeight:600 }}>Enviar arquivo</p>
-          <p style={{ fontSize:12, color:t.textGhost, margin:"0 0 16px" }}>Imagens, PDFs, documentos — máx. 10MB</p>
-          <label style={{ background:t.accent, border:"none", borderRadius:8, padding:"10px 24px", fontSize:14, fontWeight:700, color:"#fff", cursor:"pointer", display:"inline-block", opacity:uploading?0.6:1 }}>
-            {uploading ? "Enviando..." : "Escolher arquivo"}
-            <input type="file" onChange={handleUpload} disabled={uploading} style={{ display:"none" }} accept="image/*,.pdf,.doc,.docx" />
-          </label>
-        </div>
+        {locked ? (
+          <p style={{ fontSize:12, color:t.textFaint, margin:0 }}>
+            🔒 Envio de arquivos bloqueado — aguardando liberação da assinatura.
+          </p>
+        ) : (
+          <div style={{ background:t.bgCard, borderRadius:10, padding:"20px", border:`2px dashed ${t.border}`, textAlign:"center" }}>
+            <span style={{ fontSize:32, display:"block", marginBottom:8 }}>📎</span>
+            <p style={{ fontSize:14, color:t.textMuted, margin:"0 0 12px", fontWeight:600 }}>Enviar arquivo</p>
+            <p style={{ fontSize:12, color:t.textGhost, margin:"0 0 16px" }}>Imagens, PDFs, documentos — máx. 10MB</p>
+            <label style={{ background:t.accent, border:"none", borderRadius:8, padding:"10px 24px", fontSize:14, fontWeight:700, color:"#fff", cursor:"pointer", display:"inline-block", opacity:uploading?0.6:1 }}>
+              {uploading ? "Enviando..." : "Escolher arquivo"}
+              <input type="file" onChange={handleUpload} disabled={uploading} style={{ display:"none" }} accept="image/*,.pdf,.doc,.docx" />
+            </label>
+          </div>
+        )}
 
         {loading ? (
           <div style={{ display:"flex",flexDirection:"column",gap:8 }}>{[1,2].map(i=><div key={i} className="skeleton-shimmer" style={{ height:56 }}/>)}</div>
@@ -485,7 +504,7 @@ function TabAttachments({ patient, clinicId, user, t, isMobile }) {
                 </div>
                 <div style={{ display:"flex", gap:6, flexShrink:0 }}>
                    <Button onClick={()=>handleDownload(a)} size="sm">↓</Button>
-                   <Button onClick={()=>handleDelete(a)} size="sm" variant="ghost">✕</Button>
+                   {!locked && <Button onClick={()=>handleDelete(a)} size="sm" variant="ghost">✕</Button>}
                 </div>
               </div>
             ))}
@@ -530,6 +549,7 @@ export default function PatientRecord() {
   const { id } = useParams()
   const navigate = useNavigate()
   const { clinicId, clinic, user } = useAuth()
+  const { locked } = usePermissions()
   const { t } = useTheme()
   const [patient, setPatient] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -612,10 +632,10 @@ export default function PatientRecord() {
         </div>
 
         {/* Conteúdo da tab */}
-        {activeTab === "overview"    && <TabOverview    patient={patient} clinicId={clinicId} clinic={clinic} t={t} isMobile={isMobile} />}
-        {activeTab === "notes"       && <TabNotes       patient={patient} clinicId={clinicId} user={user} t={t} isMobile={isMobile} />}
+        {activeTab === "overview"    && <TabOverview    patient={patient} clinicId={clinicId} clinic={clinic} t={t} isMobile={isMobile} locked={locked} />}
+        {activeTab === "notes"       && <TabNotes       patient={patient} clinicId={clinicId} user={user} t={t} isMobile={isMobile} locked={locked} />}
         {activeTab === "history"     && <TabHistory     patient={patient} t={t} />}
-        {activeTab === "attachments" && <TabAttachments patient={patient} clinicId={clinicId} user={user} t={t} isMobile={isMobile} />}
+        {activeTab === "attachments" && <TabAttachments patient={patient} clinicId={clinicId} user={user} t={t} isMobile={isMobile} locked={locked} />}
       </div>
     </AppLayout>
   )

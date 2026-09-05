@@ -186,8 +186,9 @@ function AvailabilityEditor({ member, clinicId, t }) {
 }
 
 // ─── InviteChannels — formas de compartilhar o convite ────────────────────────
-function InviteChannels({ name, email, role, t, onEmailInvite, inviting }) {
+function InviteChannels({ name, email, role, t, onCreateAccess, onSkip, inviting, accessCreated }) {
   const [copied, setCopied] = useState(false)
+  const [sendingChannel, setSendingChannel] = useState(null) // "whatsapp" | "copy" | null
 
   const loginUrl = `${window.location.origin}/login`
   const roleLabel = ROLE_CONFIG[role]?.label ?? role
@@ -196,7 +197,20 @@ function InviteChannels({ name, email, role, t, onEmailInvite, inviting }) {
     `Olá ${name}! Você foi adicionado à clínica como ${roleLabel}.\n\nAcesse o sistema pelo link:\n${loginUrl}\n\nSeu e-mail de acesso: ${email}\n\nQualquer dúvida é só chamar!`
   )
 
-  function copyLink() {
+  // WhatsApp e "copiar mensagem" garantem que o login existe ANTES de mandar
+  // instruções de acesso — senão a pessoa recebe um link que não funciona.
+  async function sendViaWhatsapp() {
+    setSendingChannel("whatsapp")
+    const ok = accessCreated || await onCreateAccess()
+    setSendingChannel(null)
+    if (ok) window.open(`https://wa.me/?text=${whatsappMsg}`, "_blank", "noopener,noreferrer")
+  }
+
+  async function copyLink() {
+    setSendingChannel("copy")
+    const ok = accessCreated || await onCreateAccess()
+    setSendingChannel(null)
+    if (!ok) return
     const msg = `Olá ${name}! Você foi adicionado como ${roleLabel}.\n\nAcesse: ${loginUrl}\nE-mail: ${email}`
     navigator.clipboard.writeText(msg)
     setCopied(true)
@@ -210,44 +224,50 @@ function InviteChannels({ name, email, role, t, onEmailInvite, inviting }) {
       borderRadius:10, border:`1px solid ${t.border}` }}>
       <p style={{ fontSize:12, fontWeight:700, color:t.textMuted, textTransform:"uppercase",
         letterSpacing:"0.06em", margin:"0 0 10px" }}>
-        Enviar convite por
+        Dar acesso ao sistema (opcional)
+      </p>
+      <p style={{ fontSize:12, color:t.textGhost, margin:"0 0 12px", lineHeight:1.5 }}>
+        {name} já está cadastrado(a) na equipe e aparece na agenda. Isso aqui só cria um <strong>login</strong> pra
+        {" "}{name.split(" ")[0]} acessar o sistema — se não precisar, pode pular.
       </p>
       <div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>
         {/* Email */}
-        <Button onClick={onEmailInvite} disabled={inviting} loading={inviting} size="sm" variant="secondary"
+        <Button onClick={onCreateAccess} disabled={inviting} loading={inviting && sendingChannel===null} size="sm" variant="secondary"
           style={{ display:"flex", alignItems:"center", gap:6 }}>
           <IconEmail color="currentColor" />
-          E-mail
+          {accessCreated ? "Reenviar e-mail" : "Criar acesso por e-mail"}
         </Button>
 
-        {/* WhatsApp */}
-        <a href={`https://wa.me/?text=${whatsappMsg}`} target="_blank" rel="noopener noreferrer"
-          style={{ textDecoration:"none" }}>
-          <button style={{
-            display:"flex", alignItems:"center", gap:6,
-            background:"#25D366", border:"none", color:"#fff",
-            borderRadius:8, padding:"7px 14px", fontSize:13, fontWeight:600,
-            cursor:"pointer", fontFamily:"inherit",
-          }}>
-            <IconWhatsApp size={14} /> WhatsApp
-          </button>
-        </a>
+        {/* WhatsApp — provisiona o login antes de abrir a conversa */}
+        <button onClick={sendViaWhatsapp} disabled={sendingChannel==="whatsapp"} style={{
+          display:"flex", alignItems:"center", gap:6,
+          background:"#25D366", border:"none", color:"#fff",
+          borderRadius:8, padding:"7px 14px", fontSize:13, fontWeight:600,
+          cursor:"pointer", fontFamily:"inherit", opacity: sendingChannel==="whatsapp" ? 0.6 : 1,
+        }}>
+          <IconWhatsApp size={14} /> {sendingChannel==="whatsapp" ? "Criando acesso..." : "WhatsApp"}
+        </button>
 
-        {/* Copiar mensagem */}
-        <button onClick={copyLink} style={{
+        {/* Copiar mensagem — idem */}
+        <button onClick={copyLink} disabled={sendingChannel==="copy"} style={{
           display:"flex", alignItems:"center", gap:6,
           background:"transparent", border:`1px solid ${t.border}`,
           color: copied ? t.accent : t.textMuted,
           borderRadius:8, padding:"7px 14px", fontSize:13, fontWeight:600,
-          cursor:"pointer", fontFamily:"inherit", transition:"all .15s",
+          cursor:"pointer", fontFamily:"inherit", transition:"all .15s", opacity: sendingChannel==="copy" ? 0.6 : 1,
         }}>
           <IconCopy color={copied ? t.accent : t.textMuted} />
-          {copied ? "Copiado!" : "Copiar mensagem"}
+          {sendingChannel==="copy" ? "Criando acesso..." : copied ? "Copiado!" : "Copiar mensagem"}
         </button>
       </div>
-      <p style={{ fontSize:11, color:t.textDisabled, margin:"10px 0 0", lineHeight:1.5 }}>
-        A mensagem inclui o link de acesso e o e-mail cadastrado.
-      </p>
+      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginTop:10 }}>
+        <p style={{ fontSize:11, color:t.textDisabled, margin:0, lineHeight:1.5 }}>
+          {accessCreated ? "Login criado — a mensagem já pode ser reenviada quando quiser." : "O login só é criado quando você escolhe um desses canais."}
+        </p>
+        <button onClick={onSkip} style={{ background:"transparent", border:"none", color:t.textFaint, fontSize:12, fontWeight:600, cursor:"pointer", textDecoration:"underline", flexShrink:0 }}>
+          Deixar sem login por enquanto
+        </button>
+      </div>
     </div>
   )
 }
@@ -270,6 +290,7 @@ export default function Team() {
   const [inviting,        setInviting]        = useState(false)
   const [inviteError,     setInviteError]     = useState(null)
   const [savedMember,     setSavedMember]     = useState(null)  // membro recém-adicionado para mostrar canais
+  const [accessCreated,   setAccessCreated]   = useState(false) // já existe login pro savedMember?
 
   useEffect(() => {
     const fn = () => setIsMobile(window.innerWidth <= 768)
@@ -310,19 +331,29 @@ export default function Team() {
 
     // Mostra canais de convite para o membro recém-adicionado
     setSavedMember(newMember)
+    setAccessCreated(false)
     setInviteEmail(""); setInviteName(""); setInviteSpecialty(""); setInviteRole("physiotherapist")
     fetchMembers()
   }
 
+  // Cria (ou reenvia) o login do membro. Retorna true/false pra quem chamou
+  // (WhatsApp/Copy esperam esse resultado antes de mandar a mensagem).
   async function sendEmailInvite() {
-    if (!savedMember) return
+    if (!savedMember) return false
     setInviting(true)
     const { error } = await supabase.functions.invoke("invite-member", {
       body: { email: savedMember.email, name: savedMember.name, role: savedMember.role, clinic_id: clinicId }
     })
     setInviting(false)
-    if (error) showToast("E-mail de convite falhou. Use WhatsApp ou copie a mensagem.", "info")
-    else { showToast(`Convite enviado para ${savedMember.email}!`); setSavedMember(null) }
+    if (error) { showToast("Não deu pra criar o acesso agora. Tente de novo em instantes.", "info"); return false }
+    setAccessCreated(true)
+    showToast(`Acesso criado — e-mail enviado para ${savedMember.email}!`)
+    return true
+  }
+
+  function skipAccess() {
+    setSavedMember(null)
+    setAccessCreated(false)
   }
 
   async function handleRemove(id) {
@@ -428,7 +459,9 @@ export default function Team() {
               email={savedMember.email}
               role={savedMember.role}
               t={t}
-              onEmailInvite={sendEmailInvite}
+              onCreateAccess={sendEmailInvite}
+              onSkip={skipAccess}
+              accessCreated={accessCreated}
               inviting={inviting}
             />
           )}

@@ -22,12 +22,12 @@ import SubscriptionBlocked from "./pages/app/SubscriptionBlocked"
 import LoadingScreen       from "./components/LoadingScreen"
 import { useAuth }    from "./context/AuthContext"
 
-function PrivateRoute({ children }) {
+function PrivateRoute({ children, readableWhenLocked = false }) {
   const { user, loading, onboardingCompleted, clinic, subscriptionActive } = useAuth()
   if (loading) return <LoadingScreen message="Verificando sessão..." />
   if (!user) return <Navigate to="/login" replace />
   if (!onboardingCompleted) return <Navigate to="/onboarding" replace />
-  if (clinic?.plan === "pro" && !subscriptionActive) return <Navigate to="/subscription" replace />
+  if (clinic?.plan === "pro" && !subscriptionActive && !readableWhenLocked) return <Navigate to="/subscription" replace />
   return children
 }
 
@@ -88,11 +88,13 @@ function AnimatedRoutes() {
         <Route path="/onboarding" element={<OnboardingRoute />} />
 
         {/* ── App (autenticadas) ── */}
-        <Route path="/dashboard"      element={<PrivateRoute><Dashboard /></PrivateRoute>} />
-        <Route path="/patients"       element={<PrivateRoute><Patients /></PrivateRoute>} />
-        <Route path="/patients/:id"   element={<PrivateRoute><PatientRecord /></PrivateRoute>} />
+        {/* readableWhenLocked: continuam acessíveis (modo leitura) mesmo com
+            assinatura pendente — usePermissions() cuida de esconder ações de escrita */}
+        <Route path="/dashboard"      element={<PrivateRoute readableWhenLocked><Dashboard /></PrivateRoute>} />
+        <Route path="/patients"       element={<PrivateRoute readableWhenLocked><Patients /></PrivateRoute>} />
+        <Route path="/patients/:id"   element={<PrivateRoute readableWhenLocked><PatientRecord /></PrivateRoute>} />
+        <Route path="/appointments"   element={<PrivateRoute readableWhenLocked><Appointments /></PrivateRoute>} />
         <Route path="/groups"         element={<PrivateRoute><Groups /></PrivateRoute>} />
-        <Route path="/appointments"   element={<PrivateRoute><Appointments /></PrivateRoute>} />
         <Route path="/financeiro"     element={<PrivateRoute><Financial /></PrivateRoute>} />
         <Route path="/profile"        element={<PrivateRoute><ClinicProfile /></PrivateRoute>} />
         <Route path="/team"           element={<PrivateRoute><Team /></PrivateRoute>} />

@@ -98,7 +98,7 @@ const ALL_NAV_ITEMS = [
 ]
 
 export default function AppLayout({ children }) {
-  const { user, logout, clinic } = useAuth()
+  const { user, logout, clinic, subscriptionActive } = useAuth()
   const { t, mode, toggle } = useTheme()
   const permissions = usePermissions()
   const NAV_ITEMS = ALL_NAV_ITEMS.filter(item => permissions[item.permission])
@@ -108,7 +108,8 @@ export default function AppLayout({ children }) {
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 768)
 
   // ── Lógica do banner ────────────────────────────────────────────────────────
-  // 3 estados possíveis:
+  // 4 estados possíveis:
+  //  "locked"   — acesso em modo leitura (trial vencido/assinatura pendente) → prioridade máxima
   //  "upgrade"  — plano free sem trial → banner de upgrade permanente
   //  "trial"    — em trial ativo → banner com dias restantes
   //  "expiring" — trial expirando em <= 3 dias → banner urgente
@@ -116,11 +117,11 @@ export default function AppLayout({ children }) {
   const bannerState = (() => {
     if (!clinic) return null
     const { plan, trial_end } = clinic
+    if (plan === "pro" && !subscriptionActive) return "locked"
     if (plan === "free" && !trial_end) return "upgrade"
     if (plan === "free" && trial_end)  return "upgrade"   // trial expirou, voltou a free
     if (plan === "pro" && trial_end) {
       const daysLeft = Math.ceil((new Date(trial_end) - new Date()) / (1000 * 60 * 60 * 24))
-      if (daysLeft <= 0)  return "upgrade"    // trial expirado
       if (daysLeft <= 3)  return "expiring"   // urgente
       return "trial"                          // trial normal
     }
@@ -130,6 +131,17 @@ export default function AppLayout({ children }) {
     ? Math.max(0, Math.ceil((new Date(clinic.trial_end) - new Date()) / (1000 * 60 * 60 * 24)))
     : 0
   const showUpgradeBanner = !!bannerState
+
+  // Texto/cor do badge pequeno (logo + sidebar) — reflete o estado real,
+  // não só "Free". Antes mostrava "Free" fixo mesmo durante trial/bloqueio.
+  const planBadgeLabel = bannerState === "locked"   ? "Bloqueado"
+    : bannerState === "expiring" ? "Trial acaba"
+    : bannerState === "trial"    ? "Trial"
+    : "Free"
+  const planBadgeColor = bannerState === "locked"   ? "linear-gradient(135deg, #64748b 0%, #475569 100%)"
+    : bannerState === "expiring" ? "linear-gradient(135deg, #ef4444 0%, #dc2626 100%)"
+    : bannerState === "trial"    ? "linear-gradient(135deg, #3b82f6 0%, #06b6d4 100%)"
+    : "linear-gradient(135deg, #f59e0b 0%, #d97706 100%)"
 
   useEffect(() => {
     function handleResize() {
@@ -192,7 +204,7 @@ export default function AppLayout({ children }) {
                 animate={{ scale: 1, opacity: 1 }}
                 transition={{ delay: 0.2, type: "spring", stiffness: 500 }}
                 style={{
-                  background: "linear-gradient(135deg, #f59e0b 0%, #d97706 100%)",
+                  background: planBadgeColor,
                   color: "#fff",
                   fontSize: 8,
                   fontWeight: 700,
@@ -202,7 +214,7 @@ export default function AppLayout({ children }) {
                   letterSpacing: "0.5px",
                 }}
               >
-                Free
+                {planBadgeLabel}
               </motion.span>
             )}
           </div>
@@ -343,7 +355,7 @@ export default function AppLayout({ children }) {
                 animate={{ scale: 1, opacity: 1 }}
                 transition={{ delay: 0.2, type: "spring", stiffness: 500 }}
                 style={{
-                  background: "linear-gradient(135deg, #f59e0b 0%, #d97706 100%)",
+                  background: planBadgeColor,
                   color: "#fff",
                   fontSize: 9,
                   fontWeight: 700,
@@ -353,7 +365,7 @@ export default function AppLayout({ children }) {
                   letterSpacing: "0.5px",
                 }}
               >
-                Free
+                {planBadgeLabel}
               </motion.span>
             )}
           </div>
@@ -428,7 +440,9 @@ export default function AppLayout({ children }) {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.4 }}
             style={{
-              background: bannerState === "expiring"
+              background: bannerState === "locked"
+                ? "linear-gradient(135deg, #64748b 0%, #475569 100%)"
+                : bannerState === "expiring"
                 ? "linear-gradient(135deg, #f59e0b 0%, #ef4444 100%)"
                 : bannerState === "trial"
                 ? "linear-gradient(135deg, #3b82f6 0%, #06b6d4 100%)"
@@ -445,18 +459,22 @@ export default function AppLayout({ children }) {
           >
             <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
               <span style={{ fontSize: 20, flexShrink: 0 }}>
-                {bannerState === "expiring" ? "⚠️" : bannerState === "trial" ? "🕐" : "✨"}
+                {bannerState === "locked" ? "🔒" : bannerState === "expiring" ? "⚠️" : bannerState === "trial" ? "🕐" : "✨"}
               </span>
               <div>
                 <div style={{ color: "#fff", fontWeight: 700, fontSize: isMobile ? 13 : 14 }}>
-                  {bannerState === "expiring"
+                  {bannerState === "locked"
+                    ? "Acesso limitado — assinatura pendente"
+                    : bannerState === "expiring"
                     ? `Trial expira em ${trialDaysLeft} dia${trialDaysLeft !== 1 ? "s" : ""}!`
                     : bannerState === "trial"
                     ? `Trial ativo · ${trialDaysLeft} dias restantes`
                     : "Fale com a gente para ativar sua assinatura"}
                 </div>
                 <div style={{ color: "rgba(255,255,255,0.85)", fontSize: isMobile ? 11 : 12 }}>
-                  {bannerState === "expiring"
+                  {bannerState === "locked"
+                    ? "Você pode ver agenda, pacientes e dashboard — edição fica liberada assim que confirmarmos o pagamento"
+                    : bannerState === "expiring"
                     ? "Vamos entrar em contato para confirmar a cobrança"
                     : bannerState === "trial"
                     ? "Explore todos os recursos gratuitamente"
@@ -470,7 +488,7 @@ export default function AppLayout({ children }) {
               onClick={() => window.location.href = "/subscription"}
               style={{
                 background: "#fff",
-                color: bannerState === "expiring" ? "#ef4444" : "#3b82f6",
+                color: bannerState === "locked" ? "#475569" : bannerState === "expiring" ? "#ef4444" : "#3b82f6",
                 border: "none",
                 borderRadius: 8,
                 padding: isMobile ? "8px 14px" : "9px 18px",

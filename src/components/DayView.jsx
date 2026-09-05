@@ -128,7 +128,7 @@ function WeekStrip({ selectedDate, onDateChange, appointments, t }) {
 }
 
 // ─── StatusPills — troca de status com pills clicáveis ────────────────────────
-function StatusPills({ currentStatus, apptId, onStatusChange, changing, t }) {
+function StatusPills({ currentStatus, apptId, onStatusChange, changing, locked, t }) {
   return (
     <div style={{ display:"flex", gap:5, flexWrap:"wrap", marginTop:10 }}>
       {STATUS_OPTIONS.map(s => {
@@ -139,20 +139,20 @@ function StatusPills({ currentStatus, apptId, onStatusChange, changing, t }) {
         return (
           <button
             key={s}
-            disabled={isActive || isLoading}
-            onClick={e => { e.stopPropagation(); onStatusChange(apptId, s) }}
+            disabled={isActive || isLoading || locked}
+            onClick={e => { e.stopPropagation(); if (!locked) onStatusChange(apptId, s) }}
             style={{
               padding: "5px 12px",
               borderRadius: 99,
               fontSize: 12,
               fontWeight: 700,
-              cursor: isActive ? "default" : "pointer",
+              cursor: (isActive || locked) ? "default" : "pointer",
               fontFamily: "inherit",
               transition: "all .15s",
               border: `1px solid ${isActive ? cfg.color : t.border}`,
               background: isActive ? cfg.bg : "transparent",
               color: isActive ? cfg.color : t.textFaint,
-              opacity: isLoading ? 0.4 : 1,
+              opacity: (isLoading || (locked && !isActive)) ? 0.4 : 1,
               transform: isActive ? "scale(1.04)" : "scale(1)",
             }}
           >
@@ -165,7 +165,7 @@ function StatusPills({ currentStatus, apptId, onStatusChange, changing, t }) {
 }
 
 // ─── AppointmentBlock ─────────────────────────────────────────────────────────
-function AppointmentBlock({ appt, patientMap, staffMap, onStatusChange, onDelete, onEdit, isAdmin, changingStatus, t }) {
+function AppointmentBlock({ appt, patientMap, staffMap, onStatusChange, onDelete, onEdit, isAdmin, locked, changingStatus, t }) {
   const cfg       = getStatusConfig(appt.status)
   const patient   = patientMap[appt.client_id]
   const staff     = staffMap?.[appt.staff_id]
@@ -209,35 +209,39 @@ function AppointmentBlock({ appt, patientMap, staffMap, onStatusChange, onDelete
           )}
 
           {/* Botão editar */}
-          <button
-            onClick={e => { e.stopPropagation(); onEdit?.(appt) }}
-            style={{
-              background:"transparent", border:`1px solid ${t.border}`,
-              color: t.textFaint, borderRadius:6,
-              width:24, height:24, fontSize:12,
-              cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center",
-              flexShrink:0,
-            }}
-          >
-            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
-              <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
-            </svg>
-          </button>
+          {!locked && (
+            <button
+              onClick={e => { e.stopPropagation(); onEdit?.(appt) }}
+              style={{
+                background:"transparent", border:`1px solid ${t.border}`,
+                color: t.textFaint, borderRadius:6,
+                width:24, height:24, fontSize:12,
+                cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center",
+                flexShrink:0,
+              }}
+            >
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+                <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+              </svg>
+            </button>
+          )}
 
           {/* Botão excluir */}
-          <button
-            onClick={e => { e.stopPropagation(); onDelete(appt.id) }}
-            style={{
-              background:"transparent", border:`1px solid ${t.border}`,
-              color: t.textFaint, borderRadius:6,
-              width:24, height:24, fontSize:12,
-              cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center",
-              flexShrink:0,
-            }}
-          >
-            ✕
-          </button>
+          {!locked && (
+            <button
+              onClick={e => { e.stopPropagation(); onDelete(appt.id) }}
+              style={{
+                background:"transparent", border:`1px solid ${t.border}`,
+                color: t.textFaint, borderRadius:6,
+                width:24, height:24, fontSize:12,
+                cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center",
+                flexShrink:0,
+              }}
+            >
+              ✕
+            </button>
+          )}
         </div>
       </div>
 
@@ -267,6 +271,7 @@ function AppointmentBlock({ appt, patientMap, staffMap, onStatusChange, onDelete
         apptId={appt.id}
         onStatusChange={onStatusChange}
         changing={changingStatus}
+        locked={locked}
         t={t}
       />
     </div>
@@ -285,6 +290,7 @@ export default function DayView({
   onDateChange,
   isMobile,
   isAdmin = true,
+  locked = false,
 }) {
   const { t }  = useTheme()
   const today  = new Date()
@@ -449,6 +455,7 @@ export default function DayView({
                       onDelete={onDelete}
                       onEdit={onEdit}
                       isAdmin={isAdmin}
+                      locked={locked}
                       changingStatus={changingStatus}
                       t={t}
                     />

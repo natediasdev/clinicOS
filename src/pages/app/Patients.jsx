@@ -305,7 +305,7 @@ export default function Patients() {
             <h1 style={{ fontSize:isMobile?22:28, fontWeight:800, margin:0, color:t.textPrimary, letterSpacing:"-0.5px" }}>Pacientes</h1>
             <p style={{ margin:"4px 0 0", fontSize:13, color:t.textFaint }}>Gerencie os pacientes da clínica</p>
           </div>
-          <Button onClick={()=>setShowModal(true)}>+ Novo paciente</Button>
+          {permissions.canCreatePatients && <Button onClick={()=>setShowModal(true)}>+ Novo paciente</Button>}
         </header>
 
         {/* Lista + busca */}
@@ -397,7 +397,7 @@ export default function Patients() {
                     <td style={{ padding:"14px 12px",fontSize:14,color:t.textFaint }}>{p.specialty||"—"}</td>
                     <td style={{ padding:"14px 12px",textAlign:"right" }}>
                       <div style={{ display:"flex", gap:6, justifyContent:"flex-end", alignItems:"center" }}>
-                        <button onClick={()=>setEditPatient(p)} style={{ background:"transparent", border:`1px solid ${t.border}`, color:t.textGhost, borderRadius:6, padding:"5px 10px", fontSize:12, cursor:"pointer" }}>Editar</button>
+                        {permissions.canEditPatients && <button onClick={()=>setEditPatient(p)} style={{ background:"transparent", border:`1px solid ${t.border}`, color:t.textGhost, borderRadius:6, padding:"5px 10px", fontSize:12, cursor:"pointer" }}>Editar</button>}
                         {deleteConfirm===p.id ? (
                           <span style={{ display:"flex",alignItems:"center",gap:6 }}>
                             <span style={{ fontSize:12,color:t.errorText }}>Confirmar?</span>
