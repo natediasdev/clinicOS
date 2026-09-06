@@ -53,6 +53,22 @@ async function getClinicInstance(clinicId: string): Promise<string | null> {
   return clinic.evolution_instance
 }
 
+const RATE_LIMIT_MAX_PER_HOUR = 5
+
+async function isRateLimited(clinicId: string, patientId: string | undefined, phone: string): Promise<boolean> {
+  const since = new Date(Date.now() - 60 * 60 * 1000).toISOString()
+  let query = supabase
+    .from("whatsapp_logs")
+    .select("id", { count: "exact", head: true })
+    .eq("clinic_id", clinicId)
+    .gte("created_at", since)
+
+  query = patientId ? query.eq("patient_id", patientId) : query.eq("phone", formatPhone(phone))
+
+  const { count } = await query
+  return (count ?? 0) >= RATE_LIMIT_MAX_PER_HOUR
+}
+
 async function sendMessage(
   phone: string,
   text: string,
@@ -67,6 +83,18 @@ async function sendMessage(
   const number = formatPhone(phone)
   let status = "sent"
   let error: string | null = null
+
+  // Trava de segurança: evita rajada acidental de mensagens pro mesmo paciente
+  // (bug de loop, clique duplo, etc.)
+  if (await isRateLimited(logData.clinic_id, logData.patient_id, phone)) {
+    const errorMsg = `Limite de ${RATE_LIMIT_MAX_PER_HOUR} mensagens/hora atingido para este contato.`
+    console.warn("Rate limit hit:", logData)
+    await supabase.from("whatsapp_logs").insert({
+      ...logData, phone: number, message: text,
+      status: "skipped", error: errorMsg,
+    })
+    return { success: false, error: errorMsg }
+  }
 
   const instance = await getClinicInstance(logData.clinic_id)
 

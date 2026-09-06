@@ -359,6 +359,11 @@ function AppointmentModal({ onClose, onSave, staffList, clinicId, specialties, p
   async function handleSave() {
     if (!patient)  { setError("Selecione um paciente"); return }
     if (!datetime) { setError("Informe a data e hora"); return }
+    const apptYear = new Date(datetime).getFullYear()
+    const nowYear  = new Date().getFullYear()
+    if (apptYear < nowYear - 1 || apptYear > nowYear + 2) {
+      setError("Data do agendamento parece incorreta — confira o ano"); return
+    }
     if (addPayment && (!payAmount || isNaN(parseFloat(payAmount)))) {
       setError("Informe o valor do lançamento"); return
     }

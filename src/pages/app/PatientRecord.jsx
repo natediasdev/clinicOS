@@ -137,6 +137,13 @@ function TabOverview({ patient, clinicId, clinic, t, isMobile, locked }) {
   }, [patient.id, clinicId, specialty])
 
   async function handleSave() {
+    if (baseForm.birth_date) {
+      const today = new Date().toISOString().slice(0, 10)
+      const minDate = new Date(); minDate.setFullYear(minDate.getFullYear() - 120)
+      if (baseForm.birth_date > today) { showToast("Data de nascimento não pode ser no futuro", "error"); return }
+      if (baseForm.birth_date < minDate.toISOString().slice(0, 10)) { showToast("Data de nascimento inválida", "error"); return }
+    }
+
     setSaving(true)
     let hasError = false
 
@@ -197,7 +204,9 @@ function TabOverview({ patient, clinicId, clinic, t, isMobile, locked }) {
               <Input type="text" placeholder="000.000.000-00" value={baseForm.cpf} onChange={e => setBase("cpf", e.target.value)} />
             </Field>
             <Field label="Data de nascimento" t={t}>
-              <Input type="date" value={baseForm.birth_date} onChange={e => setBase("birth_date", e.target.value)} />
+              <Input type="date" value={baseForm.birth_date} onChange={e => setBase("birth_date", e.target.value)}
+                max={new Date().toISOString().slice(0,10)}
+                min={new Date(new Date().setFullYear(new Date().getFullYear()-120)).toISOString().slice(0,10)} />
             </Field>
             <Field label="Gênero" t={t}>
               <select value={baseForm.gender} onChange={e => setBase("gender", e.target.value)}

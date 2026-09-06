@@ -62,6 +62,19 @@ function buildReminderEmail(patientName: string, clinicName: string, clinicPhone
 </body></html>`
 }
 
+const RATE_LIMIT_MAX_PER_HOUR = 5
+
+async function isRateLimited(clinicId: string, patientId: string): Promise<boolean> {
+  const since = new Date(Date.now() - 60 * 60 * 1000).toISOString()
+  const { count } = await supabase
+    .from("email_logs")
+    .select("id", { count: "exact", head: true })
+    .eq("clinic_id", clinicId)
+    .eq("patient_id", patientId)
+    .gte("sent_at", since)
+  return (count ?? 0) >= RATE_LIMIT_MAX_PER_HOUR
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response(null, { status: 204, headers: CORS })
   if (req.method !== "POST")    return json({ error: "Method not allowed" }, 405)
@@ -85,6 +98,16 @@ Deno.serve(async (req: Request) => {
     const { data: patient } = await supabase.from("patients").select("name, email").eq("id", patient_id).single()
     if (!patient)       return json({ error: "Patient not found" }, 404)
     if (!patient.email) return json({ error: "Patient has no email" }, 400)
+
+    if (await isRateLimited(clinic_id, patient_id)) {
+      await supabase.from("email_logs").insert({
+        clinic_id, patient_id, payment_id: payment_id ?? null, appointment_id: appointment_id ?? null,
+        type, to_email: patient.email, subject: "(bloqueado por rate limit)", status: "skipped",
+        error_message: `Limite de ${RATE_LIMIT_MAX_PER_HOUR} e-mails/hora atingido para este paciente.`,
+        sent_at: new Date().toISOString(),
+      })
+      return json({ success: false, error: "Rate limit atingido para este paciente" }, 429)
+    }
 
     const { data: clinic } = await supabase.from("clinics").select("name, phone, sender_email").eq("id", clinic_id).single()
     if (!clinic)              return json({ error: "Clinic not found" }, 404)
