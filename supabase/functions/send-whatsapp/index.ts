@@ -61,7 +61,7 @@ async function isRateLimited(clinicId: string, patientId: string | undefined, ph
     .from("whatsapp_logs")
     .select("id", { count: "exact", head: true })
     .eq("clinic_id", clinicId)
-    .gte("created_at", since)
+    .gte("sent_at", since)
 
   query = patientId ? query.eq("patient_id", patientId) : query.eq("phone", formatPhone(phone))
 
@@ -91,7 +91,7 @@ async function sendMessage(
     console.warn("Rate limit hit:", logData)
     await supabase.from("whatsapp_logs").insert({
       ...logData, phone: number, message: text,
-      status: "skipped", error: errorMsg,
+      status: "skipped", error: errorMsg, sent_at: new Date().toISOString(),
     })
     return { success: false, error: errorMsg }
   }
@@ -103,7 +103,7 @@ async function sendMessage(
     console.error("Clinic has no evolution_instance:", logData.clinic_id)
     await supabase.from("whatsapp_logs").insert({
       ...logData, phone: number, message: text,
-      status: "failed", error: errorMsg,
+      status: "failed", error: errorMsg, sent_at: new Date().toISOString(),
     })
     return { success: false, error: errorMsg }
   }
@@ -113,7 +113,7 @@ async function sendMessage(
     console.error("EVOLUTION_API_URL or EVOLUTION_API_KEY not set")
     await supabase.from("whatsapp_logs").insert({
       ...logData, phone: number, message: text,
-      status: "failed", error: errorMsg,
+      status: "failed", error: errorMsg, sent_at: new Date().toISOString(),
     })
     return { success: false, error: errorMsg }
   }
@@ -137,7 +137,7 @@ async function sendMessage(
   }
 
   await supabase.from("whatsapp_logs").insert({
-    ...logData, phone: number, message: text, status, error,
+    ...logData, phone: number, message: text, status, error, sent_at: new Date().toISOString(),
   })
 
   return { success: status === "sent", error }

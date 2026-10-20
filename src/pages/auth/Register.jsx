@@ -5,25 +5,6 @@ import { useTheme } from "../../context/ThemeContext"
 import { Button, Input } from "../../components/ui"
 import { MotionToast } from "../../components/ui/MotionComponents"
 
-async function startTrial(clinicId) {
-  const trialEnd = new Date()
-  trialEnd.setDate(trialEnd.getDate() + 14)
-
-  const { error } = await supabase
-    .from("clinics")
-    .update({ plan: "pro", trial_end: trialEnd.toISOString() })
-    .eq("id", clinicId)
-  if (error) throw error
-
-  await supabase.from("subscriptions").insert({
-    clinic_id: clinicId,
-    billing_cycle: "monthly",
-    status: "trial",
-    trial_end: trialEnd.toISOString(),
-    current_period_end: trialEnd.toISOString(),
-  })
-}
-
 export default function Register() {
   const { t } = useTheme()
   const navigate = useNavigate()
@@ -83,24 +64,9 @@ export default function Register() {
 
       // Email confirmado imediatamente (email confirmation desativado no Supabase)
       if (authData.user.email_confirmed_at || authData.session) {
-        // Aguarda trigger handle_new_user criar a clínica (pode levar ~500ms)
-        await new Promise(r => setTimeout(r, 800))
-
-        const { data: profile } = await supabase
-          .from("profiles")
-          .select("clinic_id")
-          .eq("id", authData.user.id)
-          .single()
-
-        if (profile?.clinic_id) {
-          try {
-            await startTrial(profile.clinic_id)
-            showToast("Conta criada! Período de teste de 14 dias ativado.")
-          } catch (trialErr) {
-            console.error("Start trial error:", trialErr)
-            // Conta já existe mesmo se o trial falhar — segue o fluxo normalmente
-          }
-        }
+        // O trial de 14 dias é criado no servidor pelo trigger handle_new_user
+        // (o front não tem mais permissão de gravar plano/assinatura).
+        showToast("Conta criada! Período de teste de 14 dias ativado.")
         setTimeout(() => navigate("/onboarding"), 1500)
       } else {
         // Email confirmation ativado — usuário precisa confirmar antes de entrar
