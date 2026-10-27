@@ -37,8 +37,8 @@ const tween  = { type: "tween",  duration: 0.18, ease: "easeIn" }
 // Entrada: fade + slide de 10px para cima
 // Saída: fade rápida sem slide (menos distração ao navegar)
 export const pageVariants = {
-  initial: { opacity: 0, y: 10 },
-  enter:   { opacity: 1, y: 0, transition: { ...spring, duration: 0.28 } },
+  initial: { opacity: 0, y: 6 },
+  enter:   { opacity: 1, y: 0, transition: { ...spring, duration: 0.18 } },
   exit:    { opacity: 0, y: -6, transition: tween },
 }
 

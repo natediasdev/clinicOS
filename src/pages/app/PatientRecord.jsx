@@ -563,6 +563,9 @@ export default function PatientRecord() {
   const [patient, setPatient] = useState(null)
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState("overview")
+  // Abas já visitadas ficam montadas (só escondidas): trocar de aba não refaz
+  // a consulta nem apaga o que estava digitado e ainda não salvo.
+  const [visitedTabs, setVisitedTabs] = useState(["overview"])
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 768)
 
   useEffect(() => {
@@ -626,7 +629,7 @@ export default function PatientRecord() {
         {/* Tabs */}
         <div style={{ display:"flex", gap:4, marginBottom:20, overflowX:"auto", paddingBottom:4, borderBottom:`1px solid ${t.border}` }}>
           {TABS.map(tab => (
-            <Button key={tab.id} onClick={()=>setActiveTab(tab.id)} variant={activeTab===tab.id ? "primary" : "ghost"} style={{
+            <Button key={tab.id} onClick={()=>{ setActiveTab(tab.id); setVisitedTabs(v => v.includes(tab.id) ? v : [...v, tab.id]) }} variant={activeTab===tab.id ? "primary" : "ghost"} style={{
               background: activeTab===tab.id ? undefined : "transparent",
               border: activeTab===tab.id ? undefined : "1px solid transparent",
               padding: isMobile ? "8px 12px" : "8px 16px",
@@ -641,10 +644,14 @@ export default function PatientRecord() {
         </div>
 
         {/* Conteúdo da tab */}
-        {activeTab === "overview"    && <TabOverview    patient={patient} clinicId={clinicId} clinic={clinic} t={t} isMobile={isMobile} locked={locked} />}
-        {activeTab === "notes"       && <TabNotes       patient={patient} clinicId={clinicId} user={user} t={t} isMobile={isMobile} locked={locked} />}
-        {activeTab === "history"     && <TabHistory     patient={patient} t={t} />}
-        {activeTab === "attachments" && <TabAttachments patient={patient} clinicId={clinicId} user={user} t={t} isMobile={isMobile} locked={locked} />}
+        {[
+          ["overview",    <TabOverview    patient={patient} clinicId={clinicId} clinic={clinic} t={t} isMobile={isMobile} locked={locked} />],
+          ["notes",       <TabNotes       patient={patient} clinicId={clinicId} user={user} t={t} isMobile={isMobile} locked={locked} />],
+          ["history",     <TabHistory     patient={patient} t={t} />],
+          ["attachments", <TabAttachments patient={patient} clinicId={clinicId} user={user} t={t} isMobile={isMobile} locked={locked} />],
+        ].map(([id, node]) => visitedTabs.includes(id) && (
+          <div key={id} style={{ display: activeTab === id ? "block" : "none" }}>{node}</div>
+        ))}
       </div>
     </AppLayout>
   )

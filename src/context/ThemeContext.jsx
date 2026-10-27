@@ -124,7 +124,52 @@ export function ThemeProvider({ children }) {
       }
     `
     document.head.appendChild(scrollbarTag)
+
+    // Seletores de data/hora: sem color-scheme o navegador desenha o ícone do
+    // calendário preto em cima do fundo escuro (quase invisível).
+    const existingPicker = document.getElementById("picker-style")
+    if (existingPicker) existingPicker.remove()
+    const pickerTag = document.createElement("style")
+    pickerTag.id = "picker-style"
+    pickerTag.textContent = `
+      input[type="date"], input[type="datetime-local"], input[type="time"], input[type="month"] {
+        color-scheme: ${mode};
+        cursor: pointer;
+      }
+      input[type="date"]::-webkit-calendar-picker-indicator,
+      input[type="datetime-local"]::-webkit-calendar-picker-indicator,
+      input[type="time"]::-webkit-calendar-picker-indicator,
+      input[type="month"]::-webkit-calendar-picker-indicator {
+        cursor: pointer;
+        opacity: 0.9;
+        padding: 4px;
+        border-radius: 6px;
+        transition: opacity .15s, background .15s;
+      }
+      input[type="date"]::-webkit-calendar-picker-indicator:hover,
+      input[type="datetime-local"]::-webkit-calendar-picker-indicator:hover,
+      input[type="time"]::-webkit-calendar-picker-indicator:hover,
+      input[type="month"]::-webkit-calendar-picker-indicator:hover {
+        opacity: 1;
+        background: ${t.bgInset};
+      }
+    `
+    document.head.appendChild(pickerTag)
   }, [mode])
+
+  // Clicar em qualquer parte do campo de data/hora abre o seletor
+  // (antes só o ícone minúsculo da direita abria).
+  useEffect(() => {
+    const types = ["date", "datetime-local", "time", "month"]
+    function openPicker(e) {
+      const el = e.target
+      if (el?.tagName === "INPUT" && types.includes(el.type) && !el.disabled && !el.readOnly) {
+        try { el.showPicker?.() } catch { /* picker já aberto ou sem gesto */ }
+      }
+    }
+    document.addEventListener("click", openPicker)
+    return () => document.removeEventListener("click", openPicker)
+  }, [])
 
   const toggle = () => setMode(m => m === "dark" ? "light" : "dark")
 

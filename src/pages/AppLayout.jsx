@@ -1,8 +1,8 @@
-import { Link, useLocation } from "react-router-dom"
+import { Link, useLocation, Outlet } from "react-router-dom"
 import { useAuth } from "../context/AuthContext"
 import { useTheme } from "../context/ThemeContext"
 import { usePermissions } from "../hooks/usePermissions"
-import { useState, useEffect, useRef, useCallback } from "react"
+import { useState, useEffect, useRef, useCallback, createContext, useContext } from "react"
 import { motion } from "framer-motion"
 import { pageVariants } from "../hooks/useMotion"
 
@@ -97,7 +97,12 @@ const ALL_NAV_ITEMS = [
   { path: "/profile",      label: "Minha Clínica", icon: NavIcons.profile,      permission: "canViewClinicProfile" },
 ]
 
-export default function AppLayout({ children }) {
+// Quando AppLayout já está montado por um AppShell (layout de rota), as páginas
+// que ainda se embrulham em <AppLayout> viram passagem direta — assim o menu
+// lateral e o cabeçalho NÃO são desmontados a cada troca de aba.
+const ShellContext = createContext(false)
+
+function AppLayoutFrame({ children }) {
   const { user, logout, clinic, subscriptionActive } = useAuth()
   const { t, mode, toggle } = useTheme()
   const permissions = usePermissions()
@@ -517,5 +522,21 @@ export default function AppLayout({ children }) {
       </main>
 
     </div>
+  )
+}
+
+export default function AppLayout({ children }) {
+  const inShell = useContext(ShellContext)
+  return inShell ? <>{children}</> : <AppLayoutFrame>{children}</AppLayoutFrame>
+}
+
+// Layout de rota: menu/cabeçalho ficam montados; só o conteúdo (Outlet) troca.
+export function AppShell() {
+  const { user, loading, onboardingCompleted } = useAuth()
+  if (loading || !user || !onboardingCompleted) return <Outlet />
+  return (
+    <ShellContext.Provider value={true}>
+      <AppLayoutFrame><Outlet /></AppLayoutFrame>
+    </ShellContext.Provider>
   )
 }

@@ -5,7 +5,7 @@ import { useAuth } from "../../context/AuthContext"
 import { useTheme } from "../../context/ThemeContext"
 import AppLayout from "../AppLayout"
 import RevenueChart from "../../components/financial/RevenueChart"
-import { Button, Input, Badge } from "../../components/ui"
+import { Button, Input, Badge, SearchInput } from "../../components/ui"
 import { STATUS_COLORS } from "../../config/statusColors"
 
 // ─── SVG Icons ────────────────────────────────────────────────────────────────
@@ -427,14 +427,14 @@ export default function Financial() {
     let sentMap = {}
     if (paymentIds.length) {
       const { data: logs } = await supabase.from("whatsapp_logs")
-        .select("payment_id, created_at")
+        .select("payment_id, sent_at")
         .eq("type", "charge")
         .eq("status", "sent")
         .in("payment_id", paymentIds)
       logs?.forEach(log => {
         // Mantém o mais recente se houver múltiplos
-        if (!sentMap[log.payment_id] || new Date(log.created_at) > new Date(sentMap[log.payment_id])) {
-          sentMap[log.payment_id] = log.created_at
+        if (!sentMap[log.payment_id] || new Date(log.sent_at) > new Date(sentMap[log.payment_id])) {
+          sentMap[log.payment_id] = log.sent_at
         }
       })
     }
@@ -591,18 +591,8 @@ async function handleSendCharge(payment) {
           </div>
 
           {/* Busca */}
-          <div style={{ position:"relative", marginBottom:16 }}>
-            <span style={{ position:"absolute", left:12, top:"50%", transform:"translateY(-50%)", pointerEvents:"none" }}>
-              {Icons.search(t.textGhost)}
-            </span>
-            <Input type="text" placeholder="Buscar por paciente ou descrição..."
-              value={query} onChange={e => setQuery(e.target.value)} style={{ paddingLeft:36 }} />
-            {query && (
-              <button onClick={() => setQuery("")} style={{ position:"absolute", right:8, top:"50%",
-                transform:"translateY(-50%)", background:"transparent", border:"none",
-                color:t.textGhost, cursor:"pointer", fontSize:16 }}>✕</button>
-            )}
-          </div>
+          <SearchInput value={query} onChange={setQuery} wrapperStyle={{ marginBottom:16 }}
+            placeholder="Buscar por paciente ou descrição..." />
 
           {/* Conteúdo */}
           {fetching ? (

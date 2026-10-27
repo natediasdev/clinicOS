@@ -135,8 +135,9 @@ function useDashboardData(clinicId) {
           if (a.status==="completed") dayBuckets[dow].concluido++
           if (a.status==="no_show")   dayBuckets[dow].falta++
         })
-        // remove dom/seg (folga)
-        const occupancyByDay = dayBuckets.filter((_,i)=>i!==0&&i!==1)
+        // Seg–Sáb sempre aparecem; domingo só se houve atendimento.
+        // (Antes domingo E segunda eram removidos de TODAS as clínicas.)
+        const occupancyByDay = dayBuckets.filter((b,i)=> i!==0 || b.total>0)
 
         // ── Gráfico 4: Crescimento de pacientes (últimos 6 meses) ──
         const { data: patsAll } = await supabase.from("patients")

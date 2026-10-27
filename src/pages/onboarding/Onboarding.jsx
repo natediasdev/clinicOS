@@ -165,7 +165,7 @@ function StepAppointment({ onNext, onSkip, patient, clinicId, t }) {
   async function handleSubmit() {
     if (!datetime||!patient) return
     setLoading(true)
-    const { error } = await supabase.from("appointments").insert([{ clinic_id:clinicId, client_id:patient.id, datetime, status:"scheduled" }])
+    const { error } = await supabase.from("appointments").insert([{ clinic_id:clinicId, client_id:patient.id, datetime:new Date(datetime).toISOString(), status:"scheduled" }])
     setLoading(false)
     if (error) { setError(error.message); return }
     onNext()

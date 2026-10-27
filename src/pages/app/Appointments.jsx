@@ -6,7 +6,7 @@ import { useAuth } from "../../context/AuthContext"
 import { useTheme } from "../../context/ThemeContext"
 import { supabase } from "../../supabaseClient"
 import AppLayout from "../AppLayout"
-import { Button, Input } from "../../components/ui"
+import { Button, Input, SearchInput } from "../../components/ui"
 import { STATUS_COLORS, getStatusConfig } from "../../config/statusColors"
 
 // ─── Constantes ───────────────────────────────────────────────────────────────
@@ -345,7 +345,7 @@ function AppointmentModal({ onClose, onSave, staffList, clinicId, specialties, p
   // Preenche campos quando em modo edicao
   useEffect(() => {
     if (initialData) {
-      setDatetime(initialData.datetime ? initialData.datetime.slice(0, 16) : "")
+      setDatetime(initialData.datetime ? toLocalInput(initialData.datetime) : "")
       setStatus(initialData.status || "scheduled")
       setSpecialty(initialData.specialty || "")
       setStaffId(initialData.staff_id || "")
@@ -742,6 +742,18 @@ function CalendarView({ appointments, onDayClick }) {
 
 // ─── Appointments (página principal) ─────────────────────────────────────────
 
+// timestamptz chega em UTC ("...T17:00:00+00:00"); o <input datetime-local>
+// espera hora LOCAL. Antes o código fazia slice(0,16) do UTC e, ao salvar,
+// o horário andava +3h a cada edição.
+function toLocalInput(iso) {
+  const d = new Date(iso)
+  if (isNaN(d)) return ""
+  const p = (n) => String(n).padStart(2, "0")
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`
+}
+
+const VIEW_KEY = "clinicos-agenda-view"
+
 export default function Appointments() {
   const { t }                       = useTheme()
   const { clinicId, clinic }        = useAuth()
@@ -757,7 +769,10 @@ export default function Appointments() {
   const [fetching,     setFetching]     = useState(true)
 
   // UI
-  const [view,           setView]           = useState("day")   // "day" | "list" | "calendar"
+  const [view,           setView]           = useState(() => {
+    try { const v = localStorage.getItem(VIEW_KEY); return ["day","list","calendar"].includes(v) ? v : "day" }
+    catch { return "day" }
+  })   // "day" | "list" | "calendar"
   const [showModal,      setShowModal]      = useState(false)
   const [toast,          setToast]          = useState(null)
   const [selectedDate,   setSelectedDate]   = useState(new Date())
@@ -765,8 +780,6 @@ export default function Appointments() {
   const [filterStatus,   setFilterStatus]   = useState("all")
   const [filterSpecialty,setFilterSpecialty]= useState("all")
   const [query,          setQuery]          = useState("")
-  const [remoteAppts,    setRemoteAppts]    = useState(null)
-  const [searching,      setSearching]      = useState(false)
   const [changingStatus, setChangingStatus] = useState(null)
 
   // Modal de turma pós-agendamento
@@ -776,7 +789,6 @@ export default function Appointments() {
   const [editModal, setEditModal] = useState(false)
   const [editingAppt, setEditingAppt] = useState(null)
 
-  const searchTimeout = useRef(null)
 
   // ── Carrega dados ──
   useEffect(() => {
@@ -810,21 +822,6 @@ export default function Appointments() {
   function showToast(message, type="success") {
     setToast({ message, type })
     setTimeout(() => setToast(null), 3500)
-  }
-
-  // ── Busca remota ──
-  function handleQueryChange(q) {
-    setQuery(q)
-    clearTimeout(searchTimeout.current)
-    if (!q.trim()) { setRemoteAppts(null); return }
-    setSearching(true)
-    searchTimeout.current = setTimeout(async () => {
-      const { data } = await supabase.from("appointments").select("*")
-        .eq("clinic_id", clinicId).is("deleted_at", null)
-        .order("datetime", { ascending:false }).limit(200)
-      setRemoteAppts(data ?? [])
-      setSearching(false)
-    }, 400)
   }
 
   // ── Status change ──
@@ -866,7 +863,7 @@ export default function Appointments() {
   }
 
   // ── Filtros ──
-  const base = remoteAppts ?? appointments
+  const base = appointments
   const filteredByStatus = filterStatus === "all" ? base : base.filter(a => a.status === filterStatus)
   const filteredWithSpecialty = filterSpecialty === "all"
     ? filteredByStatus
@@ -955,7 +952,7 @@ export default function Appointments() {
             {/* Toggle de view */}
             <div style={{ display:"flex", background:t.bgCard, border:`1px solid ${t.border}`, borderRadius:10, padding:3, gap:2 }}>
               {[["day","📅 Dia"],["list","☰ Lista"],["calendar","🗓 Mês"]].map(([v,label])=>(
-                <button key={v} onClick={()=>setView(v)} style={{
+                <button key={v} onClick={()=>{ setView(v); try { localStorage.setItem(VIEW_KEY, v) } catch { /* sem storage */ } }} style={{
                   padding:"6px 14px", borderRadius:8, fontSize:13, fontWeight:600,
                   cursor:"pointer", fontFamily:"inherit", transition:"all .15s",
                   background: view===v ? t.accent : "transparent",
@@ -1025,15 +1022,8 @@ export default function Appointments() {
             )}
 
             {/* Busca */}
-            <div style={{ position:"relative", marginBottom:16 }}>
-              <span style={{ position:"absolute", left:12, top:"50%", transform:"translateY(-50%)", fontSize:14, color:t.textGhost, pointerEvents:"none" }}>🔍</span>
-              <Input type="text" placeholder="Buscar por paciente, data, status ou profissional..."
-                value={query} onChange={e=>handleQueryChange(e.target.value)} style={{ paddingLeft:36 }} />
-              {searching && <span style={{ position:"absolute",right:12,top:"50%",transform:"translateY(-50%)",fontSize:11,color:t.textGhost }}>buscando...</span>}
-              {query && !searching && (
-                <button onClick={()=>{setQuery("");setRemoteAppts(null)}} style={{ position:"absolute",right:8,top:"50%",transform:"translateY(-50%)",background:"transparent",border:"none",color:t.textGhost,cursor:"pointer",fontSize:16 }}>✕</button>
-              )}
-            </div>
+            <SearchInput value={query} onChange={setQuery} wrapperStyle={{ marginBottom:16 }}
+              placeholder="Buscar por paciente, data, status ou profissional..." />
 
             <div style={s.listCard}>
               {fetching ? (

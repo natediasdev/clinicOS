@@ -7,7 +7,7 @@ import { useTheme } from "../../context/ThemeContext"
 import { useAuth } from "../../context/AuthContext"
 import { usePermissions } from "../../hooks/usePermissions"
 import { usePlanLimits } from "../../hooks/usePlanLimits"
-import { Button, Input } from "../../components/ui"
+import { Button, Input, SearchInput } from "../../components/ui"
 
 function useIsMobile() {
   const [v, setV] = useState(window.innerWidth <= 768)
@@ -228,8 +228,12 @@ export default function Patients() {
   const searchRemote = useCallback(async (q) => {
     if (!q.trim()) { setRemoteResults(null); return }
     setSearching(true)
+    // O termo entra numa string de filtro do PostgREST: vírgula/parênteses
+    // quebravam a busca ("Silva, João" voltava vazio) e % _ viravam curinga.
+    const term = q.replace(/[,()*%_\\]/g, " ").trim()
+    if (!term) { setRemoteResults([]); setSearching(false); return }
     const { data } = await supabase.from("patients").select("*").eq("clinic_id",clinicId).is("deleted_at",null)
-      .or(`name.ilike.%${q}%,phone.ilike.%${q}%,email.ilike.%${q}%,cpf.ilike.%${q}%`)
+      .or(`name.ilike.%${term}%,phone.ilike.%${term}%,email.ilike.%${term}%,cpf.ilike.%${term}%`)
       .order("name").limit(50)
     setRemoteResults(data ?? [])
     setSearching(false)
@@ -286,7 +290,6 @@ export default function Patients() {
     else setError(error.message)
   }
 
-  const inp = { background:t.bgInput, border:`1px solid ${t.border}`, borderRadius:8, padding:"10px 12px", fontSize:14, color:t.textPrimary, outline:"none", transition:"border-color 0.2s", width:"100%", boxSizing:"border-box" }
 
   return (
     <AppLayout>
@@ -323,22 +326,13 @@ export default function Patients() {
                 </select>
               )}
               {/* Campo de busca */}
-              <div style={{ position:"relative", flex:isMobile?"1":"unset", minWidth:isMobile?"100%":200 }}>
-                <span style={{ position:"absolute", left:10, top:"50%", transform:"translateY(-50%)", fontSize:14, color:t.textGhost, pointerEvents:"none" }}>🔍</span>
-                <input
-                  type="text"
-                  placeholder="Buscar..."
-                  value={query}
-                  onChange={e=>handleQueryChange(e.target.value)}
-                  style={{ ...inp, paddingLeft:32, width:"100%" }}
-                  onFocus={e=>e.target.style.borderColor=t.accent}
-                  onBlur={e=>e.target.style.borderColor=t.border}
-                />
-                {searching && <span style={{ position:"absolute", right:10, top:"50%", transform:"translateY(-50%)", fontSize:11, color:t.textGhost }}>buscando...</span>}
-                {query && !searching && (
-                  <button onClick={()=>{setQuery("");setRemoteResults(null)}} style={{ position:"absolute",right:8,top:"50%",transform:"translateY(-50%)",background:"transparent",border:"none",color:t.textGhost,cursor:"pointer",fontSize:16,lineHeight:1 }}>✕</button>
-                )}
-              </div>
+              <SearchInput
+                value={query}
+                onChange={(v) => { handleQueryChange(v); if (!v) setRemoteResults(null) }}
+                loading={searching}
+                placeholder="Buscar nome, telefone, e-mail ou CPF..."
+                wrapperStyle={{ flex:isMobile?"1":"unset", minWidth:isMobile?"100%":260 }}
+              />
             </div>
           </div>
 

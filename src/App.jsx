@@ -1,5 +1,5 @@
-import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom"
-import { AnimatePresence } from "framer-motion"
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom"
+import { AppShell } from "./pages/AppLayout"
 import LandingPage    from "./pages/public/LandingPage"
 import Dashboard      from "./pages/app/Dashboard"
 import Patients       from "./pages/app/Patients"
@@ -67,12 +67,11 @@ function SubscriptionRoute() {
   return <Subscription />
 }
 
-// AnimatePresence precisa de useLocation dentro do BrowserRouter
-function AnimatedRoutes() {
-  const location = useLocation()
+// Sem AnimatePresence mode="wait" nem key por rota: antes cada clique no menu
+// esperava a página antiga sumir e remontava tudo (menu, banner, dados).
+function AppRoutes() {
   return (
-    <AnimatePresence mode="wait" initial={false}>
-      <Routes location={location} key={location.pathname}>
+      <Routes>
         {/* ── Públicas ── */}
         <Route path="/"               element={<LandingPage />} />
         <Route path="/privacy"        element={<PrivacyPolicy />} />
@@ -90,15 +89,17 @@ function AnimatedRoutes() {
         {/* ── App (autenticadas) ── */}
         {/* readableWhenLocked: continuam acessíveis (modo leitura) mesmo com
             assinatura pendente — usePermissions() cuida de esconder ações de escrita */}
-        <Route path="/dashboard"      element={<PrivateRoute readableWhenLocked><Dashboard /></PrivateRoute>} />
-        <Route path="/patients"       element={<PrivateRoute readableWhenLocked><Patients /></PrivateRoute>} />
-        <Route path="/patients/:id"   element={<PrivateRoute readableWhenLocked><PatientRecord /></PrivateRoute>} />
-        <Route path="/appointments"   element={<PrivateRoute readableWhenLocked><Appointments /></PrivateRoute>} />
-        <Route path="/groups"         element={<PrivateRoute><Groups /></PrivateRoute>} />
-        <Route path="/financeiro"     element={<PrivateRoute><Financial /></PrivateRoute>} />
-        <Route path="/profile"        element={<PrivateRoute><ClinicProfile /></PrivateRoute>} />
-        <Route path="/team"           element={<PrivateRoute><Team /></PrivateRoute>} />
-        <Route path="/services"       element={<PrivateRoute><ServiceTypes /></PrivateRoute>} />
+        <Route element={<AppShell />}>
+          <Route path="/dashboard"      element={<PrivateRoute readableWhenLocked><Dashboard /></PrivateRoute>} />
+          <Route path="/patients"       element={<PrivateRoute readableWhenLocked><Patients /></PrivateRoute>} />
+          <Route path="/patients/:id"   element={<PrivateRoute readableWhenLocked><PatientRecord /></PrivateRoute>} />
+          <Route path="/appointments"   element={<PrivateRoute readableWhenLocked><Appointments /></PrivateRoute>} />
+          <Route path="/groups"         element={<PrivateRoute><Groups /></PrivateRoute>} />
+          <Route path="/financeiro"     element={<PrivateRoute><Financial /></PrivateRoute>} />
+          <Route path="/profile"        element={<PrivateRoute><ClinicProfile /></PrivateRoute>} />
+          <Route path="/team"           element={<PrivateRoute><Team /></PrivateRoute>} />
+          <Route path="/services"       element={<PrivateRoute><ServiceTypes /></PrivateRoute>} />
+        </Route>
 
         {/* ── Assinatura ── */}
         <Route path="/subscription" element={<SubscriptionRoute />} />
@@ -106,7 +107,6 @@ function AnimatedRoutes() {
         {/* ── Fallback ── */}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
-    </AnimatePresence>
   )
 }
 
@@ -115,7 +115,7 @@ function App() {
   if (loading) return <LoadingScreen message="Iniciando ClinicOS..." />
   return (
     <BrowserRouter>
-      <AnimatedRoutes />
+      <AppRoutes />
     </BrowserRouter>
   )
 }
