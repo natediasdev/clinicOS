@@ -1,5 +1,5 @@
-import { useEffect, useState, useCallback, useRef } from "react"
-import { MotionToast, MotionModal, MotionList, MotionItem, MotionButton } from "../../components/ui/MotionComponents"
+import { useEffect, useState } from "react"
+import { MotionToast, MotionList, MotionItem } from "../../components/ui/MotionComponents"
 import { useNavigate } from "react-router-dom"
 import { supabase } from "../../supabaseClient"
 import AppLayout from "../AppLayout"
@@ -7,7 +7,10 @@ import { useTheme } from "../../context/ThemeContext"
 import { useAuth } from "../../context/AuthContext"
 import { usePermissions } from "../../hooks/usePermissions"
 import { usePlanLimits } from "../../hooks/usePlanLimits"
-import { Button, Input, SearchInput } from "../../components/ui"
+import { usePagination, useDebouncedValue } from "../../hooks/usePagination"
+import { useDeleteFlow } from "../../hooks/useConfirm"
+import { Button, SearchInput, Pagination } from "../../components/ui"
+import { PatientModal, EditPatientModal } from "../../components/patients/PatientModals"
 
 function useIsMobile() {
   const [v, setV] = useState(window.innerWidth <= 768)
@@ -35,163 +38,9 @@ function Toast({ toast }) {
   )
 }
 
-// Busca local: filtra por nome, telefone, email ou CPF
-function localSearch(patients, q) {
-  if (!q.trim()) return patients
-  const lower = q.toLowerCase().replace(/\D/g, "") // strip non-digits para CPF/tel
-  return patients.filter(p => {
-    if (p.name?.toLowerCase().includes(q.toLowerCase())) return true
-    if (p.phone?.replace(/\D/g, "").includes(lower)) return true
-    if (p.email?.toLowerCase().includes(q.toLowerCase())) return true
-    if (p.cpf?.replace(/\D/g, "").includes(lower)) return true
-    return false
-  })
-}
-
-function PatientModal({ onClose, onSave, clinicId, specialties, checkPatientLimit }) {
-  const { t } = useTheme()
-  const [name, setName] = useState("")
-  const [phone, setPhone] = useState("")
-  const [email, setEmail] = useState("")
-  const [specialty, setSpecialty] = useState("")
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState(null)
-
-  async function handleSave() {
-    if (!name.trim()) { setError("Nome é obrigatório"); return }
-    setError(null); setLoading(true)
-    
-    if (checkPatientLimit) {
-      const check = await checkPatientLimit()
-      if (!check.allowed) { setError(check.message); setLoading(false); return }
-    }
-    
-    const { error } = await supabase.from("patients").insert([{
-      name: name.trim(),
-      phone: phone.trim() || null,
-      email: email.trim() || null,
-      specialty: specialty || null,
-      clinic_id: clinicId
-    }])
-    setLoading(false)
-    if (error) { setError(error.message); return }
-    onSave(name)
-  }
-
-  return (
-    <MotionModal open={true} onClose={onClose} maxWidth={480}>
-      <div style={{ background: t.bgInset, border: `1px solid ${t.border}`, borderRadius: 16, width: "100%", maxWidth: 480, display: "flex", flexDirection: "column" }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "20px 24px", borderBottom: `1px solid ${t.border}` }}>
-          <h2 style={{ fontSize: 16, fontWeight: 700, color: t.textPrimary, margin: 0 }}>Novo paciente</h2>
-          <button style={{ background: "transparent", border: "none", color: t.textGhost, fontSize: 18, cursor: "pointer" }} onClick={onClose}>✕</button>
-        </div>
-
-        <div style={{ padding: 24, display: "flex", flexDirection: "column", gap: 16 }}>
-          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-            <label style={{ fontSize: 12, fontWeight: 600, color: t.textFaint }}>Nome *</label>
-            <Input type="text" placeholder="Nome completo" value={name} onChange={e => setName(e.target.value)} />
-          </div>
-
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-              <label style={{ fontSize: 12, fontWeight: 600, color: t.textFaint }}>Telefone</label>
-              <Input type="text" placeholder="(00) 00000-0000" value={phone} onChange={e => setPhone(e.target.value)} />
-            </div>
-            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-              <label style={{ fontSize: 12, fontWeight: 600, color: t.textFaint }}>E-mail</label>
-              <Input type="email" placeholder="paciente@email.com" value={email} onChange={e => setEmail(e.target.value)} />
-            </div>
-          </div>
-
-          {specialties && specialties.length > 0 && (
-            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-              <label style={{ fontSize: 12, fontWeight: 600, color: t.textFaint }}>Especialidade</label>
-              <select value={specialty} onChange={e => setSpecialty(e.target.value)} style={{ background: t.bgInput, border: `1px solid ${t.border}`, borderRadius: 8, padding: "10px 12px", fontSize: 14, color: t.textPrimary, outline: "none", width: "100%", boxSizing: "border-box", cursor: "pointer" }}>
-                <option value="">Selecione...</option>
-                {specialties.map(sp => <option key={sp} value={sp}>{sp}</option>)}
-              </select>
-            </div>
-          )}
-
-          {error && <div style={{ background: t.errorBg, border: `1px solid ${t.errorBorder}`, color: t.errorText, borderRadius: 8, padding: "10px 14px", fontSize: 13 }}>{error}</div>}
-        </div>
-
-        <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, padding: "16px 24px", borderTop: `1px solid ${t.border}` }}>
-          <Button onClick={onClose} variant="secondary">Cancelar</Button>
-          <Button onClick={handleSave} disabled={loading} loading={loading}>
-            {loading ? "Salvando..." : "Adicionar"}
-          </Button>
-        </div>
-      </div>
-    </MotionModal>
-  )
-}
-
-
-function EditPatientModal({ onClose, onSave, patient, specialties }) {
-  const { t } = useTheme()
-  const [name,     setName]     = useState(patient.name ?? "")
-  const [phone,    setPhone]    = useState(patient.phone ?? "")
-  const [email,    setEmail]    = useState(patient.email ?? "")
-  const [specialty,setSpecialty]= useState(patient.specialty ?? "")
-  const [loading,  setLoading]  = useState(false)
-  const [error,    setError]    = useState(null)
-
-  async function handleSave() {
-    if (!name.trim()) { setError("Nome é obrigatório"); return }
-    setError(null); setLoading(true)
-    const { error } = await supabase.from("patients").update({
-      name: name.trim(), phone: phone.trim()||null,
-      email: email.trim()||null, specialty: specialty||null,
-    }).eq("id", patient.id)
-    setLoading(false)
-    if (error) { setError(error.message); return }
-    onSave()
-  }
-
-  return (
-    <MotionModal open={true} onClose={onClose} maxWidth={480}>
-      <div style={{ background:t.bgInset, border:`1px solid ${t.border}`, borderRadius:16, width:"100%", maxWidth:480, display:"flex", flexDirection:"column" }}>
-        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"20px 24px", borderBottom:`1px solid ${t.border}` }}>
-          <h2 style={{ fontSize:16, fontWeight:700, color:t.textPrimary, margin:0 }}>Editar paciente</h2>
-          <button style={{ background:"transparent", border:"none", color:t.textGhost, fontSize:18, cursor:"pointer" }} onClick={onClose}>✕</button>
-        </div>
-        <div style={{ padding:24, display:"flex", flexDirection:"column", gap:16 }}>
-          <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
-            <label style={{ fontSize:12, fontWeight:600, color:t.textFaint }}>Nome *</label>
-            <Input type="text" placeholder="Nome completo" value={name} onChange={e=>setName(e.target.value)} />
-          </div>
-          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 }}>
-            <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
-              <label style={{ fontSize:12, fontWeight:600, color:t.textFaint }}>Telefone</label>
-              <Input type="text" placeholder="(00) 00000-0000" value={phone} onChange={e=>setPhone(e.target.value)} />
-            </div>
-            <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
-              <label style={{ fontSize:12, fontWeight:600, color:t.textFaint }}>E-mail</label>
-              <Input type="email" placeholder="paciente@email.com" value={email} onChange={e=>setEmail(e.target.value)} />
-            </div>
-          </div>
-          {specialties && specialties.length > 0 && (
-            <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
-              <label style={{ fontSize:12, fontWeight:600, color:t.textFaint }}>Especialidade</label>
-              <select value={specialty} onChange={e=>setSpecialty(e.target.value)} style={{ background:t.bgInput, border:`1px solid ${t.border}`, borderRadius:8, padding:"10px 12px", fontSize:14, color:t.textPrimary, outline:"none", width:"100%", boxSizing:"border-box", cursor:"pointer" }}>
-                <option value="">Selecione...</option>
-                {specialties.map(sp=><option key={sp} value={sp}>{sp}</option>)}
-              </select>
-            </div>
-          )}
-          {error && <div style={{ background:t.errorBg, border:`1px solid ${t.errorBorder}`, color:t.errorText, borderRadius:8, padding:"10px 14px", fontSize:13 }}>{error}</div>}
-        </div>
-        <div style={{ display:"flex", justifyContent:"flex-end", gap:10, padding:"16px 24px", borderTop:`1px solid ${t.border}` }}>
-          <Button onClick={onClose} variant="secondary">Cancelar</Button>
-          <Button onClick={handleSave} disabled={loading} loading={loading}>
-            {loading ? "Salvando..." : "Salvar"}
-          </Button>
-        </div>
-      </div>
-    </MotionModal>
-  )
-}
+// Termo entra numa string de filtro do PostgREST: vírgula/parênteses quebravam
+// a busca e % _ viravam curinga.
+function sanitizeTerm(q) { return q.replace(/[,()*%_\\]/g, " ").trim() }
 
 export default function Patients() {
   const { t } = useTheme()
@@ -201,105 +50,86 @@ export default function Patients() {
   const navigate = useNavigate()
   const isMobile = useIsMobile()
 
-  const [patients, setPatients] = useState([])
-  const [loading, setLoading] = useState(false)
-  const [fetching, setFetching] = useState(true)
-  const [deleteConfirm, setDeleteConfirm] = useState(null)
-  const [error, setError] = useState(null)
   const [toast, setToast] = useState(null)
   const [query, setQuery] = useState("")
-  const [remoteResults, setRemoteResults] = useState(null)
-  const [searching, setSearching] = useState(false)
   const [filterSpecialty, setFilterSpecialty] = useState("all")
   const [showModal, setShowModal] = useState(false)
   const [editPatient, setEditPatient] = useState(null)
-  const searchTimer = useRef(null)
+  const [refreshKey, setRefreshKey] = useState(0)
 
   function showToast(msg, type="success") { setToast({msg,type}); setTimeout(()=>setToast(null),3000) }
+  const reload = () => setRefreshKey(k => k + 1)
 
-  async function fetchPatients() {
-    setFetching(true)
-    const { data, error } = await supabase.from("patients").select("*").eq("clinic_id",clinicId).is("deleted_at",null).order("created_at",{ascending:false})
-    if (!error) setPatients(data ?? []); else setError(error.message)
-    setFetching(false)
-  }
+  // ── Paginação no servidor ─────────────────────────────────────────────────
+  // A busca e o filtro agora são aplicados no banco, então a lista pagina o
+  // resultado inteiro (antes: select(*) sem paginação, teto de 1000 linhas).
+  const debounced = useDebouncedValue(query.trim(), 300)
+  const filterKey = `${debounced}|${filterSpecialty}`
+  const { page, pageSize, setPage, setPageSize } = usePagination("clinicos-patients-page-size", filterKey)
+  const requestKey = `${clinicId}|${filterKey}|${page}|${pageSize}|${refreshKey}`
+  const [result, setResult] = useState({ key:null, rows:[], total:0, error:null })
 
-  // Busca remota: chamada somente se busca local retornar vazio
-  const searchRemote = useCallback(async (q) => {
-    if (!q.trim()) { setRemoteResults(null); return }
-    setSearching(true)
-    // O termo entra numa string de filtro do PostgREST: vírgula/parênteses
-    // quebravam a busca ("Silva, João" voltava vazio) e % _ viravam curinga.
-    const term = q.replace(/[,()*%_\\]/g, " ").trim()
-    if (!term) { setRemoteResults([]); setSearching(false); return }
-    const { data } = await supabase.from("patients").select("*").eq("clinic_id",clinicId).is("deleted_at",null)
-      .or(`name.ilike.%${term}%,phone.ilike.%${term}%,email.ilike.%${term}%,cpf.ilike.%${term}%`)
-      .order("name").limit(50)
-    setRemoteResults(data ?? [])
-    setSearching(false)
-  }, [])
+  useEffect(() => {
+    if (!clinicId) return
+    let cancelled = false
+    ;(async () => {
+      const from = (page - 1) * pageSize
+      let req = supabase.from("patients").select("*", { count:"exact" })
+        .eq("clinic_id", clinicId).is("deleted_at", null)
+      if (filterSpecialty !== "all") req = req.eq("specialty", filterSpecialty)
+      const term = sanitizeTerm(debounced)
+      if (term) {
+        req = req.or(`name.ilike.%${term}%,phone.ilike.%${term}%,email.ilike.%${term}%,cpf.ilike.%${term}%`)
+          .order("name").order("id")
+      } else {
+        req = req.order("created_at", { ascending:false }).order("id")
+      }
+      const { data, count, error } = await req.range(from, from + pageSize - 1)
+      if (cancelled) return
+      if (error) { setResult({ key:requestKey, rows:[], total:0, error:error.message }); return }
+      // Última página ficou vazia (ex.: removeu o único item dela): volta uma página.
+      if ((data ?? []).length === 0 && (count ?? 0) > 0 && page > 1) {
+        setPage(Math.ceil(count / pageSize)); return
+      }
+      setResult({ key:requestKey, rows:data ?? [], total:count ?? 0, error:null })
+    })()
+    return () => { cancelled = true }
+  }, [clinicId, debounced, filterSpecialty, page, pageSize, refreshKey, requestKey, setPage])
 
-  function handleQueryChange(q) {
-    setQuery(q)
-    setRemoteResults(null)
-    clearTimeout(searchTimer.current)
-    if (!q.trim()) return
-    const local = localSearch(patients, q)
-    // Se busca local não encontrou nada, vai ao banco após 400ms
-    if (local.length === 0) {
-      searchTimer.current = setTimeout(() => searchRemote(q), 400)
-    }
-  }
-
-  useEffect(() => { fetchPatients() }, [])
-
-  // Lista exibida: remota se disponível, senão local + filtro especialidade
-  let displayed = query.trim()
-    ? (remoteResults !== null ? remoteResults : localSearch(patients, query))
-    : patients
-
-  if (filterSpecialty !== "all") {
-    displayed = displayed.filter(p => p.specialty === filterSpecialty)
-  }
-
+  const fetching = result.key !== requestKey
+  const firstLoad = fetching && result.key === null
+  const displayed = result.rows
   const allSpecialties = Array.isArray(clinic?.specialties) ? clinic.specialties : []
 
-  function showToast(msg, type="success") { setToast({msg,type}); setTimeout(()=>setToast(null),3000) }
+  // ── Exclusão (fluxo único: confirmar → soft delete → aviso → recarregar) ──
+  const [removeItem, deleteDialog] = useDeleteFlow({ showToast })
+  function handleDelete(p) {
+    removeItem({
+      table:"patients", id:p.id, clinicId,
+      title:"Remover paciente", label:`o paciente ${p.name}`,
+      successMessage:"Paciente removido.", onDone:reload,
+    })
+  }
 
   function handleSaved(patientName) {
     setShowModal(false)
-    fetchPatients()
+    reload()
     showToast(`${patientName} adicionado!`)
   }
 
-  async function addPatient() {
-    if (!name.trim()) return
-    setError(null)
-    const check = await checkPatientLimit()
-    if (!check.allowed) { setError(check.message); return }
-    setLoading(true)
-    const { error } = await supabase.from("patients").insert([{name, phone, email, clinic_id: clinicId}])
-    if (!error) { setName(""); setPhone(""); setEmail(""); fetchPatients(); showToast(`${name} adicionado!`) }
-    else setError(error.message)
-    setLoading(false)
-  }
-
-  async function deletePatient(id) {
-    const { error } = await supabase.from("patients").update({deleted_at: new Date().toISOString()}).eq("id",id)
-    if (!error) { setDeleteConfirm(null); fetchPatients(); showToast("Paciente removido.","error") }
-    else setError(error.message)
-  }
-
+  const rowBtn = { background:"transparent", border:`1px solid ${t.border}`, color:t.textGhost, borderRadius:6, padding:"5px 10px", fontSize:12, cursor:"pointer", fontFamily:"inherit" }
+  const delBtn = { ...rowBtn, border:`1px solid ${t.borderStrong}`, color:t.errorText }
 
   return (
     <AppLayout>
       <Toast toast={toast} />
+      {deleteDialog}
 
       {showModal && (
         <PatientModal onClose={()=>setShowModal(false)} onSave={handleSaved} clinicId={clinicId} specialties={allSpecialties} checkPatientLimit={checkPatientLimit} />
       )}
       {editPatient && (
-        <EditPatientModal onClose={()=>setEditPatient(null)} onSave={()=>{ setEditPatient(null); fetchPatients(); showToast("Paciente atualizado!") }} patient={editPatient} specialties={allSpecialties} />
+        <EditPatientModal onClose={()=>setEditPatient(null)} onSave={()=>{ setEditPatient(null); reload(); showToast("Paciente atualizado!") }} patient={editPatient} specialties={allSpecialties} />
       )}
 
       <div style={{ color:t.textBody, fontFamily:"'DM Sans','Segoe UI',sans-serif" }}>
@@ -316,7 +146,7 @@ export default function Patients() {
           <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:16, gap:12, flexWrap:"wrap" }}>
             <h2 style={{ fontSize:13, fontWeight:700, color:t.textMuted, textTransform:"uppercase", letterSpacing:"0.08em", margin:0, display:"flex", alignItems:"center", gap:10 }}>
               Pacientes cadastrados
-              {!fetching && <span style={{ background:t.bgInset,color:t.accent,fontSize:12,fontWeight:700,padding:"2px 10px",borderRadius:99 }}>{displayed.length}</span>}
+              {!firstLoad && <span style={{ background:t.bgInset,color:t.accent,fontSize:12,fontWeight:700,padding:"2px 10px",borderRadius:99 }}>{result.total}</span>}
             </h2>
             <div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>
               {allSpecialties.length > 0 && (
@@ -325,88 +155,88 @@ export default function Patients() {
                   {allSpecialties.map(sp => <option key={sp} value={sp}>{sp}</option>)}
                 </select>
               )}
-              {/* Campo de busca */}
               <SearchInput
                 value={query}
-                onChange={(v) => { handleQueryChange(v); if (!v) setRemoteResults(null) }}
-                loading={searching}
+                onChange={setQuery}
+                loading={fetching && !firstLoad && !!debounced}
                 placeholder="Buscar nome, telefone, e-mail ou CPF..."
                 wrapperStyle={{ flex:isMobile?"1":"unset", minWidth:isMobile?"100%":260 }}
               />
             </div>
           </div>
 
-          {fetching ? (
+          {result.error && (
+            <div style={{ background:t.errorBg, border:`1px solid ${t.errorBorder}`, color:t.errorText, borderRadius:8, padding:"10px 14px", fontSize:13, marginBottom:12 }}>
+              ⚠️ {result.error}
+            </div>
+          )}
+
+          {firstLoad ? (
             <div style={{ display:"flex",flexDirection:"column",gap:8 }}>
               {[1,2,3].map(i=><div key={i} className="skeleton-shimmer" style={{ height:48 }}/>)}
             </div>
           ) : displayed.length === 0 ? (
             <div style={{ textAlign:"center",padding:"48px 0",display:"flex",flexDirection:"column",alignItems:"center",gap:8 }}>
-              <span style={{ fontSize:36 }}>{query ? "🔍" : "🦷"}</span>
+              <span style={{ fontSize:36 }}>{debounced ? "🔍" : "🦷"}</span>
               <p style={{ fontSize:15,color:t.textGhost,margin:0,fontWeight:600 }}>
-                {query ? `Nenhum paciente encontrado para "${query}"` : "Nenhum paciente cadastrado ainda."}
+                {debounced ? `Nenhum paciente encontrado para "${debounced}"` : "Nenhum paciente cadastrado ainda."}
               </p>
-              {!query && <p style={{ fontSize:13,color:t.textDisabled,margin:0 }}>Use o formulário acima para adicionar o primeiro.</p>}
+              {!debounced && permissions.canCreatePatients && <p style={{ fontSize:13,color:t.textDisabled,margin:0 }}>Clique em "+ Novo paciente" para adicionar o primeiro.</p>}
             </div>
-          ) : isMobile ? (
-            <MotionList style={{ display:"flex",flexDirection:"column",gap:10 }}>
-              {displayed.map(p=>(
-                <MotionItem key={p.id}><div style={{ background:t.bgInset, borderRadius:10, padding:"14px 16px", display:"flex", justifyContent:"space-between", alignItems:"center" }}>
-                  <div style={{ display:"flex",flexDirection:"column",gap:3,flex:1,minWidth:0 }}>
-                    <span onClick={()=>navigate(`/patients/${p.id}`)} style={{ fontWeight:700,color:t.accent,fontSize:15,cursor:"pointer" }}>{p.name}</span>
-                    {p.phone && <span style={{ fontSize:13,color:t.textGhost }}>{p.phone}</span>}
-                    {p.email && <span style={{ fontSize:12,color:t.textGhost,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap" }}>{p.email}</span>}
-                    {p.specialty && <span style={{ fontSize:12,color:t.textFaint,background:t.bgCard,borderRadius:4,padding:"2px 6px",display:"inline-block",marginTop:4 }}>{p.specialty}</span>}
-                  </div>
-                  <div style={{ marginLeft:12,flexShrink:0 }}>
-                    {deleteConfirm===p.id ? (
-                      <span style={{ display:"flex",alignItems:"center",gap:6 }}>
-                        <button onClick={()=>deletePatient(p.id)} style={{ background:t.errorBg,border:"none",color:t.errorText,borderRadius:6,padding:"6px 10px",fontSize:12,fontWeight:700,cursor:"pointer" }}>Sim</button>
-                        <button onClick={()=>setDeleteConfirm(null)} style={{ background:t.bgCard,border:`1px solid ${t.border}`,color:t.textMuted,borderRadius:6,padding:"6px 10px",fontSize:12,cursor:"pointer" }}>Não</button>
-                      </span>
-                    ) : permissions.canDeletePatients ? (
-                      <button onClick={()=>setDeleteConfirm(p.id)} style={{ background:"transparent",border:`1px solid ${t.borderStrong}`,color:t.textFaint,borderRadius:6,padding:"6px 12px",fontSize:12,cursor:"pointer" }}>Excluir</button>
-                    ) : null}
-                  </div>
-                </div></MotionItem>
-              ))}
-            </MotionList>
           ) : (
-            <table style={{ width:"100%",borderCollapse:"collapse" }}>
-                <thead>
-                  <tr>
-                    {["Nome","Telefone","E-mail","Especialidade",""].map((h,i)=>(
-                      <th key={i} style={{ fontSize:11,fontWeight:700,color:t.textGhost,textTransform:"uppercase",letterSpacing:"0.08em",padding:"0 12px 12px",textAlign:i===4?"right":"left",borderBottom:`1px solid ${t.bgInset}` }}>{h}</th>
-                    ))}
-                  </tr>
-                </thead>
-              <tbody>
-                {displayed.map(p=>(
-                  <tr key={p.id} style={{ borderBottom:`1px solid ${t.bgInset}` }}>
-                    <td style={{ padding:"14px 12px",fontSize:14 }}>
-                      <span onClick={()=>navigate(`/patients/${p.id}`)} style={{ fontWeight:600,color:t.accent,cursor:"pointer" }}>{p.name}</span>
-                    </td>
-                    <td style={{ padding:"14px 12px",fontSize:14,color:t.textGhost }}>{p.phone||"—"}</td>
-                    <td style={{ padding:"14px 12px",fontSize:14,color:t.textGhost }}>{p.email||"—"}</td>
-                    <td style={{ padding:"14px 12px",fontSize:14,color:t.textFaint }}>{p.specialty||"—"}</td>
-                    <td style={{ padding:"14px 12px",textAlign:"right" }}>
-                      <div style={{ display:"flex", gap:6, justifyContent:"flex-end", alignItems:"center" }}>
-                        {permissions.canEditPatients && <button onClick={()=>setEditPatient(p)} style={{ background:"transparent", border:`1px solid ${t.border}`, color:t.textGhost, borderRadius:6, padding:"5px 10px", fontSize:12, cursor:"pointer" }}>Editar</button>}
-                        {deleteConfirm===p.id ? (
-                          <span style={{ display:"flex",alignItems:"center",gap:6 }}>
-                            <span style={{ fontSize:12,color:t.errorText }}>Confirmar?</span>
-                            <button onClick={()=>deletePatient(p.id)} style={{ background:t.errorBg,border:"none",color:t.errorText,borderRadius:6,padding:"5px 12px",fontSize:12,fontWeight:700,cursor:"pointer" }}>Sim</button>
-                            <button onClick={()=>setDeleteConfirm(null)} style={{ background:t.bgCard,border:`1px solid ${t.border}`,color:t.textMuted,borderRadius:6,padding:"5px 12px",fontSize:12,cursor:"pointer" }}>Não</button>
-                          </span>
-                        ) : permissions.canDeletePatients ? (
-                          <button onClick={()=>setDeleteConfirm(p.id)} style={{ background:"transparent",border:`1px solid ${t.borderStrong}`,color:t.errorText,borderRadius:6,padding:"5px 10px",fontSize:12,cursor:"pointer" }}>Excluir</button>
-                        ) : null}
+            <div style={{ opacity: fetching ? 0.6 : 1, transition:"opacity .15s" }}>
+              {isMobile ? (
+                <MotionList style={{ display:"flex",flexDirection:"column",gap:10 }}>
+                  {displayed.map(p=>(
+                    <MotionItem key={p.id}><div style={{ background:t.bgInset, borderRadius:10, padding:"14px 16px", display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+                      <div style={{ display:"flex",flexDirection:"column",gap:3,flex:1,minWidth:0 }}>
+                        <span onClick={()=>navigate(`/patients/${p.id}`)} style={{ fontWeight:700,color:t.accent,fontSize:15,cursor:"pointer" }}>{p.name}</span>
+                        {p.phone && <span style={{ fontSize:13,color:t.textGhost }}>{p.phone}</span>}
+                        {p.email && <span style={{ fontSize:12,color:t.textGhost,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap" }}>{p.email}</span>}
+                        {p.specialty && <span style={{ fontSize:12,color:t.textFaint,background:t.bgCard,borderRadius:4,padding:"2px 6px",display:"inline-block",marginTop:4 }}>{p.specialty}</span>}
                       </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+                      <div style={{ marginLeft:12,flexShrink:0,display:"flex",flexDirection:"column",gap:6 }}>
+                        {permissions.canEditPatients && <button onClick={()=>setEditPatient(p)} style={rowBtn}>Editar</button>}
+                        {permissions.canDeletePatients && <button onClick={()=>handleDelete(p)} style={delBtn}>Excluir</button>}
+                      </div>
+                    </div></MotionItem>
+                  ))}
+                </MotionList>
+              ) : (
+                <table style={{ width:"100%",borderCollapse:"collapse" }}>
+                  <thead>
+                    <tr>
+                      {["Nome","Telefone","E-mail","Especialidade",""].map((h,i)=>(
+                        <th key={i} style={{ fontSize:11,fontWeight:700,color:t.textGhost,textTransform:"uppercase",letterSpacing:"0.08em",padding:"0 12px 12px",textAlign:i===4?"right":"left",borderBottom:`1px solid ${t.bgInset}` }}>{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {displayed.map(p=>(
+                      <tr key={p.id} style={{ borderBottom:`1px solid ${t.bgInset}` }}>
+                        <td style={{ padding:"14px 12px",fontSize:14 }}>
+                          <span onClick={()=>navigate(`/patients/${p.id}`)} style={{ fontWeight:600,color:t.accent,cursor:"pointer" }}>{p.name}</span>
+                        </td>
+                        <td style={{ padding:"14px 12px",fontSize:14,color:t.textGhost }}>{p.phone||"—"}</td>
+                        <td style={{ padding:"14px 12px",fontSize:14,color:t.textGhost }}>{p.email||"—"}</td>
+                        <td style={{ padding:"14px 12px",fontSize:14,color:t.textFaint }}>{p.specialty||"—"}</td>
+                        <td style={{ padding:"14px 12px",textAlign:"right" }}>
+                          <div style={{ display:"flex", gap:6, justifyContent:"flex-end", alignItems:"center" }}>
+                            {permissions.canEditPatients && <button onClick={()=>setEditPatient(p)} style={rowBtn}>Editar</button>}
+                            {permissions.canDeletePatients && <button onClick={()=>handleDelete(p)} style={delBtn}>Excluir</button>}
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          )}
+
+          {!firstLoad && result.total > 0 && (
+            <Pagination page={page} pageSize={pageSize} total={result.total} loading={fetching}
+              onPageChange={setPage} onPageSizeChange={setPageSize} />
           )}
         </div>
       </div>

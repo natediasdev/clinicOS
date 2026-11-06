@@ -23,7 +23,18 @@ export default defineConfig([
       },
     },
     rules: {
-      'no-unused-vars': ['error', { varsIgnorePattern: '^[A-Z_]' }],
+      // `motion` (framer-motion) só aparece como <motion.div>; sem o plugin
+      // react/jsx-uses-vars o ESLint não enxerga esse uso e acusava falso positivo.
+      'no-unused-vars': ['error', { varsIgnorePattern: '^(motion$|[A-Z_])' }],
+      // Regra nova do react-hooks: acusa setState dentro de useEffect, mas é o padrão
+      // usado aqui para carregar dados ao montar e para preencher formulários a partir
+      // da clínica. Fica como aviso até esses pontos serem refatorados com calma.
+      'react-hooks/set-state-in-effect': 'warn',
     },
+  },
+  {
+    // Contexto exporta o Provider e o hook no mesmo arquivo (padrão do React).
+    files: ['src/context/**/*.{js,jsx}'],
+    rules: { 'react-refresh/only-export-components': 'off' },
   },
 ])

@@ -6,6 +6,7 @@ import { useTheme } from "../../context/ThemeContext"
 import AppLayout from "../AppLayout"
 import { Button, Input } from "../../components/ui"
 import { MotionModal, MotionToast } from "../../components/ui/MotionComponents"
+import { useDeleteFlow } from "../../hooks/useConfirm"
 
 const DAYS_PT = ["Dom","Seg","Ter","Qua","Qui","Sex","Sáb"]
 
@@ -189,13 +190,12 @@ function GroupModal({ onClose, onSave, clinicId, staffList, specialties, editDat
 }
 
 // ─── Modal: gerenciar alunos da turma ─────────────────────────────────────────
-function GroupMembersModal({ group, clinicId, onClose, t }) {
+function GroupMembersModal({ group, clinicId, onClose, showToast, t }) {
   const [members,  setMembers]  = useState([])
-  const [patients, setPatients] = useState([])
   const [search,   setSearch]   = useState("")
   const [results,  setResults]  = useState([])
   const [loading,  setLoading]  = useState(true)
-  const [adding,   setAdding]   = useState(false)
+  const [removeItem, deleteDialog] = useDeleteFlow({ showToast })
 
   useEffect(() => {
     async function load() {
@@ -222,7 +222,6 @@ function GroupMembersModal({ group, clinicId, onClose, t }) {
   }
 
   async function addPatient(patient) {
-    setAdding(true)
     const { error } = await supabase.from("patient_groups").insert([{
       clinic_id: clinicId, patient_id: patient.id, group_id: group.id,
     }])
@@ -233,19 +232,23 @@ function GroupMembersModal({ group, clinicId, onClose, t }) {
       }])
       setSearch(""); setResults([])
     }
-    setAdding(false)
   }
 
-  async function removePatient(membershipId) {
-    await supabase.from("patient_groups")
-      .update({ deleted_at: new Date().toISOString() }).eq("id", membershipId)
-    setMembers(prev => prev.filter(m => m.id !== membershipId))
+  function removePatient(membershipId) {
+    removeItem({
+      table:"patient_groups", id:membershipId,
+      title:"Remover da turma", label:"este aluno da turma",
+      successMessage:"Aluno removido da turma.",
+      onDone: () => setMembers(prev => prev.filter(m => m.id !== membershipId)),
+    })
   }
 
   const occupation = Math.round((members.length / group.max_capacity) * 100)
   const barColor = occupation >= 90 ? "#ef4444" : occupation >= 70 ? "#f59e0b" : "#22c55e"
 
   return (
+    <>
+    {deleteDialog}
     <MotionModal open={true} onClose={onClose} maxWidth={520}>
       <div style={{ background:t.bgSidebar, border:`1px solid ${t.border}`, borderRadius:16,
         width:"100%", maxWidth:520, display:"flex", flexDirection:"column", maxHeight:"88vh" }}>
@@ -355,6 +358,7 @@ function GroupMembersModal({ group, clinicId, onClose, t }) {
         </div>
       </div>
     </MotionModal>
+    </>
   )
 }
 
@@ -454,6 +458,7 @@ export default function Groups() {
   function showToast(msg, type = "success") {
     setToast({ msg, type }); setTimeout(() => setToast(null), 3000)
   }
+  const [removeItem, deleteDialog] = useDeleteFlow({ showToast })
 
   async function fetchGroups() {
     setFetching(true)
@@ -486,10 +491,13 @@ export default function Groups() {
     setStaffList(data ?? [])
   }
 
-  async function deleteGroup(id) {
-    await supabase.from("groups").update({ deleted_at: new Date().toISOString() }).eq("id", id)
-    setGroups(prev => prev.filter(g => g.id !== id))
-    showToast("Turma removida.", "error")
+  function deleteGroup(id) {
+    removeItem({
+      table:"groups", id, clinicId,
+      title:"Remover turma", label:"esta turma",
+      successMessage:"Turma removida.",
+      onDone: () => setGroups(prev => prev.filter(g => g.id !== id)),
+    })
   }
 
   useEffect(() => {
@@ -498,6 +506,7 @@ export default function Groups() {
 
   return (
     <AppLayout>
+      {deleteDialog}
       <MotionToast toast={toast}>
         <div style={{ border:"1px solid", borderRadius:10, padding:"12px 20px",
           fontSize:14, fontWeight:600, boxShadow:"0 8px 24px rgba(0,0,0,0.2)",
@@ -529,6 +538,7 @@ export default function Groups() {
           group={manageGroup}
           clinicId={clinicId}
           onClose={() => { setManageGroup(null); fetchGroups() }}
+          showToast={showToast}
           t={t}
         />
       )}

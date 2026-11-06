@@ -8,6 +8,7 @@ import { usePermissions } from "../../hooks/usePermissions"
 import AppLayout from "../AppLayout"
 import { Button, Input, Card } from "../../components/ui"
 import { STATUS_COLORS } from "../../config/statusColors"
+import { useDeleteFlow } from "../../hooks/useConfirm"
 
 // ─── Tabs ─────────────────────────────────────────────────────────────────────
 const TABS = [
@@ -50,7 +51,7 @@ function normalizeSpecialty(sp) {
     .trim()
 }
 
-function TabOverview({ patient, clinicId, clinic, t, isMobile, locked }) {
+function TabOverview({ patient, clinicId, t, isMobile, locked }) {
   const [loading,    setLoading]    = useState(true)
   const [saving,     setSaving]     = useState(false)
   const [toast,      setToast]      = useState(null)
@@ -298,6 +299,7 @@ function TabNotes({ patient, clinicId, user, t, isMobile, locked }) {
   const [toast, setToast] = useState(null)
 
   function showToast(msg, type="success") { setToast({msg,type}); setTimeout(()=>setToast(null),3000) }
+  const [removeItem, deleteDialog] = useDeleteFlow({ showToast })
 
   async function fetchNotes() {
     const { data } = await supabase.from("clinical_notes").select("*").eq("patient_id", patient.id).is("deleted_at", null).order("created_at", { ascending:false })
@@ -318,10 +320,12 @@ function TabNotes({ patient, clinicId, user, t, isMobile, locked }) {
     else { setText(""); setTitle(""); fetchNotes(); showToast("Anotação salva!") }
   }
 
-  async function handleDelete(id) {
-    await supabase.from("clinical_notes").update({ deleted_at: new Date().toISOString() }).eq("id", id)
-    fetchNotes()
-    showToast("Anotação removida.", "error")
+  function handleDelete(id) {
+    removeItem({
+      table:"clinical_notes", id,
+      title:"Remover anotação", label:"esta anotação",
+      successMessage:"Anotação removida.", onDone: fetchNotes,
+    })
   }
 
   useEffect(() => { fetchNotes() }, [patient.id])
@@ -329,6 +333,7 @@ function TabNotes({ patient, clinicId, user, t, isMobile, locked }) {
   return (
     <>
       <Toast toast={toast} />
+      {deleteDialog}
       <div style={{ display:"flex", flexDirection:"column", gap:16 }}>
         {locked ? (
           <p style={{ fontSize:12, color:t.textFaint, margin:0 }}>
@@ -417,13 +422,14 @@ function TabHistory({ patient, t }) {
 }
 
 // ─── Tab: Anexos ──────────────────────────────────────────────────────────────
-function TabAttachments({ patient, clinicId, user, t, isMobile, locked }) {
+function TabAttachments({ patient, clinicId, user, t, locked }) {
   const [attachments, setAttachments] = useState([])
   const [loading, setLoading] = useState(true)
   const [uploading, setUploading] = useState(false)
   const [toast, setToast] = useState(null)
 
   function showToast(msg, type="success") { setToast({msg,type}); setTimeout(()=>setToast(null),3000) }
+  const [removeItem, deleteDialog] = useDeleteFlow({ showToast })
 
   async function fetchAttachments() {
     const { data } = await supabase.from("patient_attachments").select("*").eq("patient_id", patient.id).is("deleted_at", null).order("created_at", { ascending:false })
@@ -449,11 +455,15 @@ function TabAttachments({ patient, clinicId, user, t, isMobile, locked }) {
     e.target.value = ""
   }
 
-  async function handleDelete(attachment) {
-    await supabase.storage.from("patient-attachments").remove([attachment.storage_path])
-    await supabase.from("patient_attachments").update({ deleted_at: new Date().toISOString() }).eq("id", attachment.id)
-    fetchAttachments()
-    showToast("Arquivo removido.", "error")
+  function handleDelete(attachment) {
+    removeItem({
+      table:"patient_attachments", id:attachment.id,
+      title:"Remover arquivo", label:"este arquivo",
+      successMessage:"Arquivo removido.",
+      // o registro é marcado como removido primeiro; o arquivo do storage sai em seguida
+      afterDelete: () => supabase.storage.from("patient-attachments").remove([attachment.storage_path]),
+      onDone: fetchAttachments,
+    })
   }
 
   async function handleDownload(attachment) {
@@ -481,6 +491,7 @@ function TabAttachments({ patient, clinicId, user, t, isMobile, locked }) {
   return (
     <>
       <Toast toast={toast} />
+      {deleteDialog}
       <div style={{ display:"flex", flexDirection:"column", gap:16 }}>
         {locked ? (
           <p style={{ fontSize:12, color:t.textFaint, margin:0 }}>
@@ -557,7 +568,7 @@ function EmptyState({ icon, title, sub, t }) {
 export default function PatientRecord() {
   const { id } = useParams()
   const navigate = useNavigate()
-  const { clinicId, clinic, user } = useAuth()
+  const { clinicId, user } = useAuth()
   const { locked } = usePermissions()
   const { t } = useTheme()
   const [patient, setPatient] = useState(null)
@@ -645,10 +656,10 @@ export default function PatientRecord() {
 
         {/* Conteúdo da tab */}
         {[
-          ["overview",    <TabOverview    patient={patient} clinicId={clinicId} clinic={clinic} t={t} isMobile={isMobile} locked={locked} />],
+          ["overview",    <TabOverview    patient={patient} clinicId={clinicId} t={t} isMobile={isMobile} locked={locked} />],
           ["notes",       <TabNotes       patient={patient} clinicId={clinicId} user={user} t={t} isMobile={isMobile} locked={locked} />],
           ["history",     <TabHistory     patient={patient} t={t} />],
-          ["attachments", <TabAttachments patient={patient} clinicId={clinicId} user={user} t={t} isMobile={isMobile} locked={locked} />],
+          ["attachments", <TabAttachments patient={patient} clinicId={clinicId} user={user} t={t} locked={locked} />],
         ].map(([id, node]) => visitedTabs.includes(id) && (
           <div key={id} style={{ display: activeTab === id ? "block" : "none" }}>{node}</div>
         ))}

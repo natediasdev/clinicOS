@@ -15,6 +15,7 @@ import { supabase } from "../../supabaseClient"
 import AppLayout from "../AppLayout"
 import { Button, Input } from "../../components/ui"
 import { MotionModal, MotionList, MotionItem, MotionToast } from "../../components/ui/MotionComponents"
+import { useDeleteFlow } from "../../hooks/useConfirm"
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -361,13 +362,14 @@ export default function ServiceTypes() {
     setTimeout(() => setToast(null), 3000)
   }
 
-  async function handleDelete(id) {
-    if (!window.confirm("Remover este tipo de serviço?")) return
-    await supabase.from("product_types")
-      .update({ deleted_at: new Date().toISOString() })
-      .eq("id", id)
-    setServices(prev => prev.filter(s => s.id !== id))
-    showToast("Serviço removido")
+  const [removeItem, deleteDialog] = useDeleteFlow({ showToast })
+  function handleDelete(id) {
+    removeItem({
+      table:"product_types", id, clinicId,
+      title:"Remover serviço", label:"este tipo de serviço",
+      successMessage:"Serviço removido.",
+      onDone: () => setServices(prev => prev.filter(s => s.id !== id)),
+    })
   }
 
   function handleSaved() {
@@ -386,6 +388,7 @@ export default function ServiceTypes() {
   return (
     <AppLayout>
       <Toast toast={toast} />
+      {deleteDialog}
 
       {modal && (
         <ServiceModal

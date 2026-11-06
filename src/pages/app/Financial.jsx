@@ -7,6 +7,7 @@ import AppLayout from "../AppLayout"
 import RevenueChart from "../../components/financial/RevenueChart"
 import { Button, Input, Badge, SearchInput } from "../../components/ui"
 import { STATUS_COLORS } from "../../config/statusColors"
+import { useDeleteFlow } from "../../hooks/useConfirm"
 
 // ─── SVG Icons ────────────────────────────────────────────────────────────────
 const Icons = {
@@ -405,6 +406,7 @@ export default function Financial() {
   const [query,        setQuery]        = useState("")
 
   function showToast(msg, type = "success") { setToast({ msg, type }); setTimeout(() => setToast(null), 3000) }
+  const [removeItem, deleteDialog] = useDeleteFlow({ showToast })
 
   async function fetchPayments() {
     setFetching(true)
@@ -469,9 +471,12 @@ export default function Financial() {
     if (!error) { fetchPayments(); showToast(`Status atualizado`) }
   }
 
-  async function handleDelete(id) {
-    const { error } = await supabase.from("payments").update({ deleted_at: new Date().toISOString() }).eq("id", id)
-    if (!error) { fetchPayments(); showToast("Lançamento removido.", "error") }
+  function handleDelete(id) {
+    removeItem({
+      table:"payments", id, clinicId,
+      title:"Remover lançamento", label:"este lançamento",
+      successMessage:"Lançamento removido.", onDone: fetchPayments,
+    })
   }
 
 async function handleSendCharge(payment) {
@@ -511,6 +516,7 @@ async function handleSendCharge(payment) {
   return (
     <AppLayout>
       <Toast toast={toast} t={t} />
+      {deleteDialog}
 
       {showModal && (
         <PaymentModal

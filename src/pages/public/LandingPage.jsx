@@ -415,7 +415,7 @@ function AnimatedCounter({ target, suffix="" }) {
 
 function Stats() {
   const ref = useRef(null)
-  useGSAP((gsap, ScrollTrigger) => {
+  useGSAP((gsap) => {
     gsap.set(ref.current.querySelectorAll(".lp-stat-item"), { opacity:0, y:20 })
     gsap.to(ref.current.querySelectorAll(".lp-stat-item"), {
       opacity:1, y:0, stagger:.12, duration:.7, ease:"power2.out",
@@ -437,7 +437,7 @@ function Stats() {
 // ─── Features ─────────────────────────────────────────────────────────────────
 function Features() {
   const titleRef = useRef(null); const gridRef = useRef(null)
-  useGSAP((gsap, ScrollTrigger) => {
+  useGSAP((gsap) => {
     gsap.set(titleRef.current.querySelectorAll(".gs-reveal"), { opacity:0, y:24 })
     gsap.set(gridRef.current.querySelectorAll(".lp-feature-card"), { opacity:0, y:36, scale:.95 })
     gsap.to(titleRef.current.querySelectorAll(".gs-reveal"), { opacity:1, y:0, stagger:.1, duration:.7, ease:"power2.out", scrollTrigger:{ trigger:titleRef.current, start:"top 82%", once:true }})
@@ -466,7 +466,7 @@ function Features() {
 // ─── Testimonials ─────────────────────────────────────────────────────────────
 function Testimonials() {
   const ref = useRef(null)
-  useGSAP((gsap, ScrollTrigger) => {
+  useGSAP((gsap) => {
     gsap.set(ref.current.querySelectorAll(".lp-testimonial-card"), { opacity:0, y:36 })
     gsap.to(ref.current.querySelectorAll(".lp-testimonial-card"), { opacity:1, y:0, stagger:.13, duration:.8, ease:"power2.out", scrollTrigger:{ trigger:ref.current, start:"top 82%", once:true }})
   })
@@ -492,7 +492,7 @@ function Testimonials() {
 // ─── Pricing ──────────────────────────────────────────────────────────────────
 function Pricing() {
   const ref = useRef(null)
-  useGSAP((gsap, ScrollTrigger) => {
+  useGSAP((gsap) => {
     gsap.set(ref.current.querySelectorAll(".lp-plan-card"), { opacity:0, y:40 })
     gsap.to(ref.current.querySelectorAll(".lp-plan-card"), { opacity:1, y:0, stagger:.1, duration:.8, ease:"power2.out", scrollTrigger:{ trigger:ref.current, start:"top 82%", once:true }})
   })
@@ -542,7 +542,7 @@ function Pricing() {
 function FAQ() {
   const [open, setOpen] = useState(null)
   const ref = useRef(null)
-  useGSAP((gsap, ScrollTrigger) => {
+  useGSAP((gsap) => {
     gsap.set(ref.current.querySelectorAll(".lp-faq-item"), { opacity:0, x:-20 })
     gsap.to(ref.current.querySelectorAll(".lp-faq-item"), { opacity:1, x:0, stagger:.07, duration:.6, ease:"power2.out", scrollTrigger:{ trigger:ref.current, start:"top 82%", once:true }})
   })
@@ -568,7 +568,7 @@ function FAQ() {
 // ─── CTA Final ────────────────────────────────────────────────────────────────
 function CTAFinal() {
   const ref = useRef(null)
-  useGSAP((gsap, ScrollTrigger) => {
+  useGSAP((gsap) => {
     gsap.set(ref.current.querySelectorAll(".gs-reveal"), { opacity:0, y:28 })
     gsap.to(ref.current.querySelectorAll(".gs-reveal"), { opacity:1, y:0, stagger:.1, duration:.8, ease:"power2.out", scrollTrigger:{ trigger:ref.current, start:"top 82%", once:true }})
   })

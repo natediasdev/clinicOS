@@ -228,7 +228,7 @@ function AppointmentBlock({ appt, patientMap, staffMap, onStatusChange, onDelete
           )}
 
           {/* Botão excluir */}
-          {!locked && (
+          {!locked && isAdmin && (
             <button
               onClick={e => { e.stopPropagation(); onDelete(appt.id) }}
               style={{

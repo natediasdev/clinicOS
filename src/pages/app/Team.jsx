@@ -6,6 +6,8 @@ import { useTheme } from "../../context/ThemeContext"
 import AppLayout from "../AppLayout"
 import { Button, Input } from "../../components/ui"
 import { PLAN_CONFIG } from "../../hooks/usePlanLimits"
+import { useDeleteFlow } from "../../hooks/useConfirm"
+import { softDelete } from "../../lib/softDelete"
 
 const ROLE_CONFIG = {
   admin:          { label: "Admin",          color: "#8b5cf6" },
@@ -114,9 +116,11 @@ function AvailabilityEditor({ member, clinicId, t }) {
     await supabase.from("availability").update({ [field]: value, updated_at: new Date().toISOString() }).eq("id", id)
   }
 
+  // Horário da agenda do profissional: sai direto (é só uma linha do formulário
+  // de horários), mas usa o mesmo soft delete do resto do app.
   async function removeSlot(id) {
-    await supabase.from("availability").update({ deleted_at: new Date().toISOString() }).eq("id", id)
-    setSlots(prev => prev.filter(s => s.id !== id))
+    const { error } = await softDelete("availability", id)
+    if (!error) setSlots(prev => prev.filter(s => s.id !== id))
   }
 
   const select = (value, onChange, options) => (
@@ -280,7 +284,6 @@ export default function Team() {
   const [members,         setMembers]         = useState([])
   const [fetching,        setFetching]        = useState(true)
   const [toast,           setToast]           = useState(null)
-  const [removeConfirm,   setRemoveConfirm]   = useState(null)
   const [expandedHours,   setExpandedHours]   = useState(null)  // id do membro com horários abertos
   const [isMobile,        setIsMobile]        = useState(window.innerWidth <= 768)
   const [inviteEmail,     setInviteEmail]     = useState("")
@@ -299,6 +302,7 @@ export default function Team() {
   }, [])
 
   function showToast(msg, type = "success") { setToast({ msg, type }); setTimeout(() => setToast(null), 4000) }
+  const [removeItem, deleteDialog] = useDeleteFlow({ showToast })
 
   async function fetchMembers() {
     setFetching(true)
@@ -356,9 +360,12 @@ export default function Team() {
     setAccessCreated(false)
   }
 
-  async function handleRemove(id) {
-    const { error } = await supabase.from("staff").update({ deleted_at: new Date().toISOString() }).eq("id", id)
-    if (!error) { setRemoveConfirm(null); fetchMembers(); showToast("Membro removido.", "error") }
+  function handleRemove(m) {
+    removeItem({
+      table:"staff", id:m.id, clinicId,
+      title:"Remover membro", label:`${m.name ?? "este membro"} da equipe`,
+      successMessage:"Membro removido.", onDone: fetchMembers,
+    })
   }
 
   useEffect(() => { if (clinicId) fetchMembers() }, [clinicId])
@@ -369,6 +376,7 @@ export default function Team() {
   return (
     <AppLayout>
       <Toast toast={toast} />
+      {deleteDialog}
       <div style={{ color:t.textBody, fontFamily:"'DM Sans','Segoe UI',sans-serif" }}>
         <header style={{ marginBottom: isMobile ? 16 : 32 }}>
           <h1 style={{ fontSize: isMobile?22:28, fontWeight:800, margin:0, color:t.textPrimary, letterSpacing:"-0.5px" }}>Equipe</h1>
@@ -535,22 +543,13 @@ export default function Team() {
                         </button>
 
                         {/* Remover */}
-                        {removeConfirm === m.id ? (
-                          <div style={{ display:"flex", alignItems:"center", gap:6 }}>
-                            <span style={{ fontSize:12, color:t.errorText }}>Confirmar?</span>
-                            <Button onClick={() => handleRemove(m.id)} size="sm"
-                              style={{ background:t.errorBg, border:"none", color:t.errorText }}>Sim</Button>
-                            <Button onClick={() => setRemoveConfirm(null)} size="sm" variant="secondary">Não</Button>
-                          </div>
-                        ) : (
-                          <button onClick={() => setRemoveConfirm(m.id)} style={{
-                            background:"transparent", border:`1px solid ${t.border}`,
-                            color:t.textGhost, borderRadius:8, padding:"6px 8px",
-                            cursor:"pointer", display:"flex", alignItems:"center",
-                          }}>
-                            <IconTrash color={t.textGhost} />
-                          </button>
-                        )}
+                        <button onClick={() => handleRemove(m)} title="Remover" style={{
+                          background:"transparent", border:`1px solid ${t.border}`,
+                          color:t.textGhost, borderRadius:8, padding:"6px 8px",
+                          cursor:"pointer", display:"flex", alignItems:"center",
+                        }}>
+                          <IconTrash color={t.textGhost} />
+                        </button>
                       </div>
                     </div>
 

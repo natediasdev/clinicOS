@@ -10,6 +10,7 @@ import { useEffect, useState, useCallback } from "react"
 import { useTheme } from "../context/ThemeContext"
 import { useAuth } from "../context/AuthContext"
 import { supabase } from "../supabaseClient"
+import { useConfirm } from "../hooks/useConfirm"
 
 function QRCodeDisplay({ code, t }) {
   if (!code) return null
@@ -86,6 +87,7 @@ const STATE_COLORS = {
 
 export default function WhatsAppCard({ isAdmin = false }) {
   const { t }                               = useTheme()
+  const [confirm, confirmDialog]           = useConfirm()
   const { clinicId, clinic, refreshClinic } = useAuth()
 
   const [state,        setState]        = useState("loading")
@@ -176,7 +178,8 @@ export default function WhatsAppCard({ isAdmin = false }) {
 
   // ── handleLogout ─────────────────────────────────────────────────────────────
   async function handleLogout() {
-    if (!window.confirm("Desconectar o WhatsApp desta instância?")) return
+    const ok = await confirm({ title:"Desconectar WhatsApp", message:"Desconectar o WhatsApp desta instância? Será preciso escanear o QR Code de novo para reconectar.", confirmLabel:"Desconectar" })
+    if (!ok) return
     setLoadingAct("logout"); setError(null)
     try {
       await callInstance("logout")
@@ -207,6 +210,8 @@ export default function WhatsAppCard({ isAdmin = false }) {
   const stateColor   = STATE_COLORS[state] ?? "#64748b"
 
   return (
+    <>
+    {confirmDialog}
     <div style={{
       background: t.bgCard, border: `1px solid ${t.border}`,
       borderRadius: 14, padding: 24, display: "flex", flexDirection: "column", gap: 20,
@@ -352,10 +357,11 @@ export default function WhatsAppCard({ isAdmin = false }) {
         </div>
       )}
     </div>
+    </>
   )
 }
 
-function ActionButton({ children, onClick, loading, color, t, variant = "primary" }) {
+function ActionButton({ children, onClick, loading, color, variant = "primary" }) {
   const isPrimary = variant === "primary"
   return (
     <button onClick={onClick} disabled={loading} style={{

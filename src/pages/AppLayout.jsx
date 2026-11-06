@@ -2,7 +2,7 @@ import { Link, useLocation, Outlet } from "react-router-dom"
 import { useAuth } from "../context/AuthContext"
 import { useTheme } from "../context/ThemeContext"
 import { usePermissions } from "../hooks/usePermissions"
-import { useState, useEffect, useRef, useCallback, createContext, useContext } from "react"
+import { useState, useEffect, createContext, useContext } from "react"
 import { motion } from "framer-motion"
 import { pageVariants } from "../hooks/useMotion"
 

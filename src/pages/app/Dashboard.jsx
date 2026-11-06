@@ -1,11 +1,16 @@
-import { useEffect, useState, useRef } from "react"
-import { motion, AnimatePresence } from "framer-motion"
-import { MotionToast, MotionCard, MotionList, MotionItem } from "../../components/ui/MotionComponents"
+import { useEffect, useState } from "react"
+import { Link, useNavigate } from "react-router-dom"
+import { MotionToast, MotionCard } from "../../components/ui/MotionComponents"
 import { supabase } from "../../supabaseClient"
 import { useAuth } from "../../context/AuthContext"
 import { useTheme } from "../../context/ThemeContext"
 import AppLayout from "../AppLayout"
-import { STATUS_COLORS, getStatusConfig } from "../../config/statusColors"
+import { STATUS_COLORS } from "../../config/statusColors"
+import { usePermissions } from "../../hooks/usePermissions"
+import { usePlanLimits } from "../../hooks/usePlanLimits"
+import { Button } from "../../components/ui"
+import AppointmentModal from "../../components/appointments/AppointmentModal"
+import { PatientModal } from "../../components/patients/PatientModals"
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell, Legend,
@@ -39,7 +44,7 @@ const DAYS = ["Dom","Seg","Ter","Qua","Qui","Sex","Sáb"]
 
 // ─── Data fetching ────────────────────────────────────────────────────────────
 
-function useDashboardData(clinicId) {
+function useDashboardData(clinicId, reloadKey = 0) {
   const [data, setData] = useState({
     totalPatients: null, todayAppointments: null,
     nextAppointments: [], weekOccupancy: null, weekNoShow: null,
@@ -143,7 +148,6 @@ function useDashboardData(clinicId) {
         const { data: patsAll } = await supabase.from("patients")
           .select("created_at").eq("clinic_id",clinicId).is("deleted_at",null).order("created_at",{ascending:true})
         const growthMap = {}
-        let running = 0
         ;(patsAll??[]).forEach(p => {
           const d = new Date(p.created_at)
           const key = d.toLocaleDateString("pt-BR",{month:"short",year:"2-digit"})
@@ -174,7 +178,7 @@ function useDashboardData(clinicId) {
       }
     }
     fetchAll()
-  }, [clinicId])
+  }, [clinicId, reloadKey])
 
   return data
 }
@@ -206,9 +210,15 @@ function SectionCard({ title, children, span, t }) {
   )
 }
 
-function MetricCard({ label, value, sub, accent, t }) {
+function MetricCard({ label, value, sub, accent, t, onClick }) {
+  const clickable = typeof onClick === "function"
   return (
-    <div style={{ background:t.bgCard, borderRadius:12, padding:"20px 18px", display:"flex", flexDirection:"column", gap:4, borderTop:`3px solid ${accent}`, minWidth:0 }}>
+    <div
+      onClick={onClick}
+      role={clickable ? "link" : undefined}
+      tabIndex={clickable ? 0 : undefined}
+      onKeyDown={clickable ? (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onClick() } } : undefined}
+      style={{ background:t.bgCard, borderRadius:12, padding:"20px 18px", display:"flex", flexDirection:"column", gap:4, borderTop:`3px solid ${accent}`, minWidth:0, cursor:clickable?"pointer":"default" }}>
       <span style={{ fontSize:32, fontWeight:800, lineHeight:1, letterSpacing:"-1px", color:accent, wordBreak:"break-word" }}>{value}</span>
       <span style={{ fontSize:13, fontWeight:600, color:t.textBody, marginTop:6 }}>{label}</span>
       {sub && <span style={{ fontSize:11, color:t.textGhost }}>{sub}</span>}
@@ -327,7 +337,7 @@ function WeeklyOccupancyCard({ t, clinicId }) {
           <p style={{ fontSize:12, color:t.textGhost, margin:0 }}>{msg}</p>
           {(!data.totalSlots || data.totalSlots === 35) && (
             <p style={{ fontSize:11, color:t.textDisabled, margin:"6px 0 0" }}>
-              ⚙️ Configure os <a href="/team" style={{ color:t.accent, textDecoration:"none" }}>horários da equipe</a> para cálculo preciso
+              ⚙️ Configure os <Link to="/team" style={{ color:t.accent, textDecoration:"none" }}>horários da equipe</Link> para cálculo preciso
             </p>
           )}
         </>
@@ -342,15 +352,54 @@ export default function Dashboard() {
   const { clinicId, clinic } = useAuth()
   const { t }  = useTheme()
   const isMobile = useIsMobile()
-  const d = useDashboardData(clinicId)
-  
-  // Theme-aware wrapper for CustomTooltip
-  const ThemedTooltip = (props) => <CustomTooltip {...props} t={t} />
+  const navigate = useNavigate()
+  const permissions = usePermissions()
+  const { checkPatientLimit } = usePlanLimits()
+  const [reloadKey, setReloadKey] = useState(0)
+  const d = useDashboardData(clinicId, reloadKey)
 
-  const gridCols = isMobile ? "1fr" : "repeat(2, 1fr)"
+  // Ações rápidas: os modais abrem aqui mesmo, sem trocar de página
+  const [modal, setModal] = useState(null)   // "patient" | "appointment" | null
+  const [formData, setFormData] = useState({ staffList: [], productTypes: [] })
+  const [toast, setToast] = useState(null)
+  function showToast(msg, type = "success") { setToast({ msg, type }); setTimeout(() => setToast(null), 3500) }
+
+  async function openAppointmentModal() {
+    const [staffRes, prodRes] = await Promise.all([
+      supabase.from("staff").select("id,name").eq("clinic_id", clinicId).is("deleted_at", null),
+      supabase.from("product_types").select("id,name,price,sessions_in_package,description,specialty")
+        .eq("clinic_id", clinicId).eq("active", true).is("deleted_at", null).order("name"),
+    ])
+    setFormData({ staffList: staffRes.data ?? [], productTypes: prodRes.data ?? [] })
+    setModal("appointment")
+  }
+  const specialties = Array.isArray(clinic?.specialties) ? clinic.specialties : []
+  const refresh = () => setReloadKey(k => k + 1)
+
+  // Atalhos dos cards de métrica (a Agenda lê ?view= e ?status=)
+  const go = (path) => () => navigate(path)
 
   return (
     <AppLayout>
+      <MotionToast toast={toast}>
+        <div style={{ border:"1px solid", borderRadius:10, padding:"12px 20px", fontSize:14, fontWeight:600, boxShadow:"0 8px 24px rgba(0,0,0,0.2)",
+          background: toast?.type==="error" ? t.errorBg : t.successBg,
+          borderColor: toast?.type==="error" ? t.errorBorder : t.successBorder,
+          color: toast?.type==="error" ? t.errorText : t.successText }}>
+          {toast?.type==="error" ? "✕" : "✓"} {toast?.msg}
+        </div>
+      </MotionToast>
+
+      {modal === "patient" && (
+        <PatientModal onClose={()=>setModal(null)} clinicId={clinicId} specialties={specialties} checkPatientLimit={checkPatientLimit}
+          onSave={(name)=>{ setModal(null); refresh(); showToast(`${name} adicionado!`) }} />
+      )}
+      {modal === "appointment" && (
+        <AppointmentModal onClose={()=>setModal(null)} clinicId={clinicId} specialties={specialties}
+          staffList={formData.staffList} productTypes={formData.productTypes}
+          onSave={(name)=>{ setModal(null); refresh(); showToast(`Agendamento de ${name} criado!`) }} />
+      )}
+
       <div style={{ color:t.textBody, fontFamily:"'DM Sans','Segoe UI',sans-serif" }}>
 
         {/* Header */}
@@ -360,6 +409,14 @@ export default function Dashboard() {
           </h1>
           <p style={{ margin:"4px 0 0", fontSize:13, color:t.textFaint }}>Visão geral da clínica</p>
         </header>
+
+        {/* ── Ações rápidas ── */}
+        <div style={{ display:"flex", gap:10, flexWrap:"wrap", marginBottom:20 }}>
+          {permissions.canCreateAppointments && <Button onClick={openAppointmentModal}>+ Novo agendamento</Button>}
+          {permissions.canCreatePatients && <Button variant="secondary" onClick={()=>setModal("patient")}>+ Novo paciente</Button>}
+          <Button variant="secondary" onClick={go("/appointments?view=day")}>Agenda de hoje</Button>
+          {!permissions.locked && <Button variant="secondary" onClick={go("/financeiro")}>Financeiro</Button>}
+        </div>
 
         {d.error && (
           <div style={{ background:t.errorBg, color:t.errorText, border:`1px solid ${t.errorBorder}`, borderRadius:8, padding:"10px 16px", fontSize:13, marginBottom:20 }}>
@@ -371,11 +428,11 @@ export default function Dashboard() {
         <div style={{ display:"grid", gridTemplateColumns: isMobile?"1fr 1fr":"repeat(5,1fr)", gap:12, marginBottom:20 }}>
           {d.loading ? [1,2,3,4,5].map(i=><Skeleton key={i} h={88} t={t}/>) : <>
             {[
-              { label:"Pacientes ativos",   value:d.totalPatients,          sub:"total cadastrado",     accent:"#3b82f6" },
-              { label:"Agendamentos hoje",  value:d.todayAppointments,       sub:"excluindo cancelados", accent:"#8b5cf6" },
-              { label:"Próximos na fila",   value:d.nextAppointments.length, sub:"aguardando",           accent:"#f59e0b" },
-              { label:"Ocupação semanal",   value:`${d.weekOccupancy??0}%`,  sub:"desta semana",         accent:"#22c55e" },
-              { label:"Faltas esta semana", value:d.weekNoShow??0,           sub:"não compareceram",     accent:"#ef4444" },
+              { label:"Pacientes ativos",   value:d.totalPatients,          sub:"total cadastrado",     accent:"#3b82f6", onClick:go("/patients") },
+              { label:"Agendamentos hoje",  value:d.todayAppointments,       sub:"excluindo cancelados", accent:"#8b5cf6", onClick:go("/appointments?view=day") },
+              { label:"Próximos na fila",   value:d.nextAppointments.length, sub:"aguardando",           accent:"#f59e0b", onClick:go("/appointments?view=list&status=scheduled") },
+              { label:"Ocupação semanal",   value:`${d.weekOccupancy??0}%`,  sub:"desta semana",         accent:"#22c55e", onClick:go("/appointments?view=calendar") },
+              { label:"Faltas esta semana", value:d.weekNoShow??0,           sub:"não compareceram",     accent:"#ef4444", onClick:go("/appointments?view=list&status=no_show") },
             ].map((m, i) => (
               <MotionCard key={m.label} delay={i * 0.06}>
                 <MetricCard t={t} {...m} />
@@ -398,7 +455,7 @@ export default function Dashboard() {
                     <CartesianGrid strokeDasharray="3 3" stroke={t.border} vertical={false}/>
                     <XAxis dataKey="semana" tick={{ fill:t.textGhost, fontSize:11 }} axisLine={false} tickLine={false}/>
                     <YAxis tick={{ fill:t.textGhost, fontSize:11 }} axisLine={false} tickLine={false} tickFormatter={v=>`R$${(v/1000).toFixed(0)}k`}/>
-                    <Tooltip content={<ThemedTooltip currency/>}/>
+                    <Tooltip content={<CustomTooltip t={t} currency/>}/>
                     <Bar dataKey="valor" name="Faturamento" fill="#3b82f6" radius={[4,4,0,0]}>
                       {d.revenueByWeek.map((_,i)=>(
                         <Cell key={i} fill={i===d.revenueByWeek.length-1?"#60a5fa":"#3b82f6"}/>
@@ -421,7 +478,7 @@ export default function Dashboard() {
                     <Pie data={d.statusPie} cx="50%" cy="45%" innerRadius={50} outerRadius={80} paddingAngle={3} dataKey="value">
                       {d.statusPie.map((s,i)=><Cell key={i} fill={s.color}/>)}
                     </Pie>
-                    <Tooltip content={<ThemedTooltip/>}/>
+                    <Tooltip content={<CustomTooltip t={t}/>}/>
                     <Legend iconType="circle" iconSize={8} formatter={v=><span style={{ color:t.textMuted, fontSize:12 }}>{v}</span>}/>
                   </PieChart>
                 </ResponsiveContainer>
@@ -441,7 +498,7 @@ export default function Dashboard() {
                   <CartesianGrid strokeDasharray="3 3" stroke={t.border} vertical={false}/>
                   <XAxis dataKey="dia" tick={{ fill:t.textGhost, fontSize:12 }} axisLine={false} tickLine={false}/>
                   <YAxis tick={{ fill:t.textMuted, fontSize:11 }} axisLine={false} tickLine={false}/>
-                  <Tooltip content={<ThemedTooltip/>}/>
+                  <Tooltip content={<CustomTooltip t={t}/>}/>
                   <Bar dataKey="concluido" name="Concluído" stackId="a" fill="#22c55e" radius={[0,0,0,0]}/>
                   <Bar dataKey="falta"     name="Não veio"  stackId="a" fill="#f59e0b" radius={[0,0,0,0]}/>
                   <Bar dataKey="total"     name="Total"     fill="#3b82f620" radius={[4,4,0,0]}/>
@@ -467,7 +524,7 @@ export default function Dashboard() {
                     <CartesianGrid strokeDasharray="3 3" stroke={t.border} vertical={false}/>
                     <XAxis dataKey="mes" tick={{ fill:t.textGhost, fontSize:11 }} axisLine={false} tickLine={false}/>
                     <YAxis tick={{ fill:t.textMuted, fontSize:11 }} axisLine={false} tickLine={false}/>
-                    <Tooltip content={<ThemedTooltip/>}/>
+                    <Tooltip content={<CustomTooltip t={t}/>}/>
                     <Area type="monotone" dataKey="total" name="Pacientes" stroke="#3b82f6" strokeWidth={2} fill="url(#pgGrad)" dot={{ fill:"#3b82f6", r:3 }}/>
                   </AreaChart>
                 </ResponsiveContainer>
